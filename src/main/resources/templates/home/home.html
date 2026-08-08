@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ホーム | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}" />
+</head>
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}" class="active">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}">案件管理</a></li>
+			<li><a th:href="@{/companys}">業者管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>ダッシュボード</h1>
+			<div class="login-status">お疲れ様です、<strong>山田 太郎</strong>さん</div>
+		</header>
+
+		<div class="dashboard-grid">
+			<section class="card">
+				<h3>見積待ち案件</h3>
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>顧客名</th>
+							<th>発注業者</th>
+							<th>案件名</th>
+							<th>操作</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:if="${#lists.isEmpty(needQuoteList)}">
+							<td colspan="4" style="text-align: center;">現在、対応が必要な案件はありません。</td>
+						</tr>
+						<tr th:each="q : ${needQuoteList}">
+							<td data-label="顧客名" th:text="${q.clientName}"></td>
+							<td data-label="発注業者" th:text="${q.companyName}"></td>
+							<td data-label="案件名" th:text="${q.projectName}"></td>
+							<td><a th:href="@{/projects/{id}(id=${q.projectId})}" class="btn btn-primary">詳細</a></td>
+						</tr>
+					</tbody>
+
+				</table>
+				<div class="pagination" th:if="${qTotalPages > 0}">
+					<a th:href="@{/home(qPage=${qPage-1}, pPage=${pPage})}" th:if="${qPage > 1}">前のページ</a>
+
+					<th:block th:if="${qTotalPages > 1}" th:each="i : ${#numbers.sequence(1, qTotalPages)}">
+						<th:block th:switch="${i == qPage}">
+							<span th:case="true" th:text="'| ' + ${i} + ' '"></span>
+							<a th:case="false" th:href="@{/home(qPage=${i}, pPage=${pPage})}"
+								th:text="'| ' + ${i} + ' '"></a>
+						</th:block>
+					</th:block>
+
+					<a th:href="@{/home(qPage=${qPage+1}, pPage=${pPage})}" th:if="${qPage < qTotalPages}">次のページ</a>
+				</div>
+			</section>
+
+			<section class="card">
+				<h3>判定待ち案件</h3>
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>期限</th>
+							<th>顧客</th>
+							<th>案件名</th>
+							<th>操作</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:if="${#lists.isEmpty(pendingList)}">
+							<td colspan="4" style="text-align: center;">現在、判定待ちの案件はありません。</td>
+						</tr>
+						<tr th:each="q : ${pendingList}">
+							<td data-label="期限">
+								<span th:if="${quoteService.isExpired(q)}" class="text-danger">
+									期限切れ
+								</span>
+
+								<span th:unless="${quoteService.isExpired(q)}">
+									<span th:if="${q.deadlineDate != null}">
+										<span
+											th:with="days=${T(java.time.temporal.ChronoUnit).DAYS.between(T(java.time.LocalDate).now(), q.deadlineDate)}">
+											<span th:if="${days == 0}">本日期限</span>
+											<span th:if="${days > 0}">あと [[${days}]] 日</span>
+										</span>
+										<small th:text="${'(' + q.deadlineDate + ')'}"></small>
+									</span>
+									<span th:if="${q.deadlineDate == null}">期限設定なし</span>
+								</span>
+							</td>
+							<td data-label="顧客" th:text="${q.clientName}"></td>
+							<td data-label="内容" th:text="${q.projectName}"></td>
+							<td><a th:href="@{/projects/{id}(id=${q.projectId})}" class="btn btn-primary">詳細</a></td>
+						</tr>
+					</tbody>
+
+				</table>
+				<div class="pagination" th:if="${pTotalPages > 0}">
+					<a th:href="@{/home(qPage=${qPage}, pPage=${pPage-1})}" th:if="${pPage > 1}">前のページ</a>
+
+					<th:block th:if="${pTotalPages > 1}" th:each="i : ${#numbers.sequence(1, pTotalPages)}">
+						<th:block th:switch="${i == pPage}">
+							<span th:case="true" th:text="'| ' + ${i} + ' '"></span>
+							<a th:case="false" th:href="@{/home(qPage=${qPage}, pPage=${i})}"
+								th:text="'| ' + ${i} + ' '"></a>
+						</th:block>
+					</th:block>
+
+					<a th:href="@{/home(qPage=${qPage}, pPage=${pPage+1})}" th:if="${pPage < pTotalPages}">次のページ</a>
+				</div>
+			</section>
+		</div>
+	</main>
+</body>
+
+</html>

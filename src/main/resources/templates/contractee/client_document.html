@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>関連資料一覧 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<script th:src="@{/js/quote-preview.js}" defer></script>
+</head>
+
+<body class="theme-contractee">
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/contractee/home}">ホーム</a></li>
+			<li><a th:href="@{/contractee/clients}" class="active">顧客管理</a></li>
+			<li><a th:href="@{/contractee/projects}">案件管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>関連資料一覧</h1>
+			<p>お疲れ様です：<span th:text="${currentUser.name}"></span> さん</p>
+		</header>
+
+		<div style="margin-bottom: 25px;">
+			<span style="color: var(--text-muted); font-size: 0.9rem;">対象顧客：</span>
+			<a th:href="@{/contractee/clients/{id}(id=${client.clientId})}" th:text="${client.clientName}"
+				style="font-weight: bold; text-decoration: none; color: var(--accent); font-size: 1.1rem;">顧客名</a>
+		</div>
+
+		<div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+
+
+		<div class="card">
+			<h3>資料情報</h3>
+			<div class="doc-grid" th:if="${not #lists.isEmpty(documents)}">
+				<div class="doc-item" th:each="doc : ${documents}">
+					<div class="preview-box">
+						<iframe th:if="${doc.docFilePath.toLowerCase().endsWith('.pdf')}"
+							th:src="@{'/' + ${doc.docFilePath} + '#view=Fit&scrollbar=0&toolbar=0&navpanes=0'}"
+							scrolling="no"></iframe>
+						<img th:if="${!doc.docFilePath.toLowerCase().endsWith('.pdf')}"
+							th:src="@{'/' + ${doc.docFilePath}}" alt="プレビュー">
+					</div>
+
+					<a th:href="@{'/' + ${doc.docFilePath}}" target="_blank"> <strong
+							th:text="${doc.docTitle}">資料名</strong>
+					</a>
+					<div class="doc-meta" th:text="${doc.docType}">分類</div>
+					<div class="doc-meta" th:text="${#temporals.format(doc.docCreatedAt, 'yyyy/MM/dd')}">日付</div>
+
+					<div class="remarks-container">
+						<details th:if="${doc.docRemarks != null and doc.docRemarks != ''}">
+							<summary>備考を表示</summary>
+							<p><span th:text="${doc.docRemarks}"></span></p>
+						</details>
+					</div>
+
+				</div>
+
+			</div>
+			<p th:if="${#lists.isEmpty(documents)}" style="text-align:center; padding:20px;">登録されている資料はありません。</p>
+			<div class="action-buttons" style="margin-top: 20px; display: flex; gap: 10px;">
+				<a th:href="@{/contractee/clients/{id}(id=${client.clientId})}" class="btn btn-secondary">顧客詳細へ戻る</a>
+			</div>
+		</div>
+	</main>
+</body>
+
+</html>

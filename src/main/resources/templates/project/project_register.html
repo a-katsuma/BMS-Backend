@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<title>新規案件登録 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<script th:src="@{/js/input.js}"></script>
+	<script src="https://yubinbango.github.io/yubinbango/yubinbango.js" charset="UTF-8" defer></script>
+</head>
+
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}" class="active">案件管理</a></li>
+			<li><a th:href="@{/companys}">業者管理</a></li>
+		</ul>
+	</nav>
+	<main class="main-content">
+		<header>
+			<h1>新規案件登録</h1>
+		</header>
+
+		<div class="card">
+			<form th:action="@{/projects/add}" th:object="${projectForm}" method="post">
+				<div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}">
+					<p>入力内容にエラーがあります。メッセージの内容を確認してください。</p>
+				</div>
+
+				<div class="form-vertical-layout">
+					<div class="form-group-block">
+						<label>案件名 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{projectName}" placeholder="案件名を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('projectName')}"
+							th:errors="*{projectName}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>顧客 <span class="required">(必須)</span></label>
+						<select th:field="*{clientId}">
+							<option value="">顧客を選択してください</option>
+							<option th:each="c : ${clients}" th:value="${c.clientId}" th:text="${c.clientName}">
+							</option>
+						</select>
+						<span class="error-text" th:if="${#fields.hasErrors('clientId')}"
+							th:errors="*{clientId}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>発注業者 <span class="required">(必須)</span></label>
+						<select th:field="*{companyId}">
+							<option value="">発注業者を選択してください</option>
+							<option th:each="comp : ${companies}" th:value="${comp.companyId}"
+								th:text="${comp.companyName}"></option>
+						</select>
+						<span class="error-text" th:if="${#fields.hasErrors('companyId')}"
+							th:errors="*{companyId}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>担当者名 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{projectStaffname}" placeholder="担当者名を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('projectStaffname')}"
+							th:errors="*{projectStaffname}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>契約種別 <span class="required">(必須)</label>
+						<select th:field="*{contractType}">
+							<option value="">契約種別を選択してください</option>
+							<option value="定期">定期</option>
+							<option value="臨時">臨時</option>
+						</select>
+						<span class="error-text" th:if="${#fields.hasErrors('contractType')}"
+							th:errors="*{contractType}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>案件状態 <span class="required">(必須)</span></label>
+						<select th:field="*{status}">
+							<option value="">案件状態を選択してください</option>
+							<option value="進行中">進行中</option>
+							<option value="休止中">休止中</option>
+							<option value="完了">完了</option>
+						</select>
+						<span class="error-text" th:if="${#fields.hasErrors('status')}" th:errors="*{status}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>特記事項 </label>
+						<textarea th:field="*{projectRemarks}" placeholder="特記事項を入力" rows="4"></textarea>
+						<span class="error-text" th:if="${#fields.hasErrors('projectRemarks')}"
+							th:errors="*{projectRemarks}"></span>
+					</div>
+
+					<div class="action-buttons">
+						<button type="submit" class="btn btn-primary">登録する</button>
+						<a th:href="@{/projects}" class="btn btn-cancel">戻る</a>
+					</div>
+				</div>
+			</form>
+		</div>
+	</main>
+</body>
+
+</html>

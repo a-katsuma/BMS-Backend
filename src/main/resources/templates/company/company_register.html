@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<title>新規案件登録 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+	<!--	<script th:src="@{/js/input.js}"></script>-->
+	<script src="https://yubinbango.github.io/yubinbango/yubinbango.js" charset="UTF-8" defer></script>
+</head>
+
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}">案件管理</a></li>
+			<li><a th:href="@{/companys}" class="active">業者管理</a></li>
+		</ul>
+	</nav>
+	<main class="main-content">
+		<header>
+			<h1>新規業者登録</h1>
+		</header>
+
+		<div class="card">
+			<form th:action="@{/companys/add}" th:object="${companyForm}" method="post" class="h-adr">
+				<div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}">
+					<p>入力内容にエラーがあります。メッセージの内容を確認してください。</p>
+				</div>
+
+				<input type="hidden" class="p-country-name" value="Japan">
+
+				<div class="form-vertical-layout">
+					<div class="form-group-block">
+						<label>業者名 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{companyName}" placeholder="業者名を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('companyName')}"
+							th:errors="*{companyName}"></span>
+					</div>
+
+					<div class="form-group-block">
+						<label>フリガナ <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{companyKana}" placeholder="フリガナを入力">
+						<span class="error-text" th:if="${#fields.hasErrors('companyKana')}"
+							th:errors="*{companyKana}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>郵便番号 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{companyPostalcode}" class="p-postal-code"
+							placeholder="郵便番号を入力(ハイフンなし)" maxlength="7">
+						<span class="error-text" th:if="${#fields.hasErrors('companyPostalcode')}"
+							th:errors="*{companyPostalcode}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>住所 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{companyAddress}" class="p-region p-locality p-street-address"
+							placeholder="業者住所を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('companyAddress')}"
+							th:errors="*{companyAddress}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>電話番号 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{companyPhone}" placeholder="電話番号を入力(ハイフンなし)">
+						<span class="error-text" th:if="${#fields.hasErrors('companyPhone')}"
+							th:errors="*{companyPhone}"></span>
+					</div>
+					<div class="action-buttons">
+						<button type="submit" class="btn btn-primary">登録する</button>
+						<a th:href="@{/companys}" class="btn btn-cancel">戻る</a>
+					</div>
+				</div>
+			</form>
+		</div>
+	</main>
+</body>
+
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>案件詳細 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body class="theme-contractee">
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/contractee/home}">ホーム</a></li>
+			<li><a th:href="@{/contractee/clients}">顧客管理</a></li>
+			<li><a th:href="@{/contractee/projects}" class="active">案件管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>案件詳細</h1>
+			<p>お疲れ様です：<span th:text="${currentUser.name}"></span> さん</p>
+
+		</header>
+
+		<div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+
+		<div class="card">
+			<h3>案件情報</h3>
+			<dl class="detail-list">
+
+				<div class="detail-item">
+					<dt>顧客名</dt>
+					<dd>
+						<a th:href="@{/contractee/clients/{id}(id=${project.clientId})}" th:text="${project.clientName}"></a>
+					</dd>
+				</div>
+				<div class="detail-item">
+					<dt>案件名</dt>
+					<dd th:text="${project.projectName}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>担当業者</dt>
+					<dd th:text="${project.companyName}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>契約種別</dt>
+					<dd th:text="${project.contractType}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>担当者名</dt>
+					<dd th:text="${project.projectStaffname}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>案件状態</dt>
+					<dd th:text="${project.status}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>特記事項</dt>
+					<dd th:text="${project.projectRemarks}" style="white-space: pre-wrap;"></dd>
+				</div>
+			</dl>
+
+			<a th:href="@{/contractee/projects}" class="btn">案件一覧へ戻る</a>
+		</div>
+
+
+		<div class="card">
+			<h3>見積情報・履歴</h3>
+
+			<th:block th:if="${latestQuote == null}">
+				<p class="no-quote-msg" style="color: #636e72;">現在、登録されている見積はありません。</p>
+			</th:block>
+
+			<th:block th:if="${latestQuote}">
+				<dl class="detail-list" style="margin-bottom: 20px;">
+					<div class="detail-item">
+						<dt>見積ファイル</dt>
+						<dd><a th:href="@{'/' + ${latestQuote.quoteFilepath}}" target="_blank">PDFを表示</a></dd>
+					</div>
+					<div class="detail-item">
+						<dt>現在の判定状態</dt>
+						<dd th:text="${latestQuote.quoteStatus}"></dd>
+					</div>
+					<div class="detail-item">
+						<dt>判定期限</dt>
+						<dd>
+							<span th:text="${latestQuote.deadlineDate != null ? latestQuote.deadlineDate : '期限設定なし'}"
+								th:classappend="${latestQuote.deadlineDate != null and latestQuote.deadlineDate.isBefore(T(java.time.LocalDate).now())} ? 'text-danger' : ''">
+							</span>
+
+							<span
+								th:if="${latestQuote.deadlineDate != null and latestQuote.deadlineDate.isBefore(T(java.time.LocalDate).now())}"
+								class="text-danger">
+								(期限切れ)
+							</span>
+						</dd>
+					</div>
+					<div class="detail-item">
+						<dt>最終更新日</dt>
+						<dd th:text="${latestQuote.quoteDate}"></dd>
+					</div>
+				</dl>
+
+				<div class="action-buttons-form"
+					th:if="${latestQuote.quoteStatus == '未判定' and (latestQuote.deadlineDate == null or !latestQuote.deadlineDate.isBefore(T(java.time.LocalDate).now()))}">
+
+					<p>この見積を判定する</p>
+					<form
+						th:action="@{/contractee/projects/{pid}/quotes/judge/{id}(pid=${project.projectId}, id=${latestQuote.quoteId})}"
+						method="post" style="display: flex; gap: 10px;">
+
+						<button type="submit" name="status" value="発注" class="btn">発注</button>
+						<button type="submit" name="status" value="失注" class="btn">失注</button>
+						<button type="submit" name="status" value="差戻し" class="btn">差戻し</button>
+					</form>
+				</div>
+
+				<div th:if="${latestQuote.quoteStatus == '未判定' and latestQuote.deadlineDate != null and latestQuote.deadlineDate.isBefore(T(java.time.LocalDate).now())}">
+					<p>※有効期限が過ぎているため、判定はできません。</p>
+				</div>
+			</th:block>
+
+			<div style="margin-top: 30px;">
+				<table class="data-table">
+					<thead>
+						<tr>
+							<th>更新日</th>
+							<th>判定状態</th>
+							<th>判定者</th>
+							<th>ファイル</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="h : ${historyList}" th:if="${not #lists.isEmpty(historyList)}">
+							<td data-label="更新日" th:text="${h.quoteDate}"></td>
+							<td data-label="判定状態" th:text="${h.quoteStatus}"></td>
+							<td data-label="判定者" th:text="${h.judgeUser}"></td>
+							<td data-label="ファイル"><a th:href="@{'/' + ${h.quoteFilepath}}" target="_blank">閲覧</a></td>
+						</tr>
+						<tr th:if="${#lists.isEmpty(historyList)}">
+							<td colspan="4" style="text-align: center;">履歴はありません。</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</main>
+</body>
+
+</html>

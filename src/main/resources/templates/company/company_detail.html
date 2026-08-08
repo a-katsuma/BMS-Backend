@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>業者詳細 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}">案件管理</a></li>
+			<li><a th:href="@{/companys}" class="active">業者管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>業者詳細</h1>
+		</header>
+
+		<div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+
+		<div class="card">
+			<h3>業者基本情報</h3>
+			<dl class="detail-list">
+				<div class="detail-item">
+					<dt>業者名</dt>
+					<dd th:text="${company.companyName}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>フリガナ</dt>
+					<dd th:text="${company.companyKana}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>郵便番号</dt>
+					<dd th:text="${company.formattedCompanyPostalcode}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>住所</dt>
+					<dd th:text="${company.companyAddress}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>電話番号</dt>
+					<dd th:text="${company.formattedCompanyPhone}"></dd>
+				</div>
+			</dl>
+
+			<div class="action-buttons-form" style="margin-top: 20px; display: flex; gap: 10px;">
+				<a th:href="@{/companys/edit/{id}(id=${company.companyId})}" class="btn">編集</a>
+				<a th:href="@{/companys/delete/{id}(id=${company.companyId})}" class="btn"
+					onclick="return confirm('本当に削除しますか？');">削除</a>
+				<a th:href="@{/companys}" class="btn">業者一覧へ戻る</a>
+			</div>
+		</div>
+
+		<div class="card">
+			<h3>関連案件一覧</h3>
+			<table class="data-table" th:if="${not #lists.isEmpty(projects)}">
+				<thead>
+					<tr>
+						<th>顧客名</th>
+						<th>案件名</th>
+						<th>案件状態</th>
+						<th>見積状態</th>
+						<th>操作</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="p : ${projects}">
+						<td data-label="顧客名" th:text="${p.clientName}"></td>
+						<td data-label="案件名" th:text="${p.projectName}"></td>
+						<td data-label="案件状態" th:text="${p.status}"></td>
+						<td data-label="見積状態">
+							<span th:if="${quoteService.isExpired(p)}" class="text-danger">
+								期限切れ
+							</span>
+							<span th:unless="${quoteService.isExpired(p)}"
+								th:text="${p.latestQuoteStatus ?: '見積り中'}"></span>
+						</td>
+
+
+
+						<td data-label="操作">
+							<a th:href="@{/projects/{id}(id=${p.projectId})}" class="btn btn-primary">詳細</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<div class="pagination" th:if="${totalPages > 1}">
+				<a th:href="@{/companys/{id}(id=${company.companyId}, page=${currentPage-1})}"
+					th:if="${currentPage > 1}">前のページ</a>
+
+				<th:block th:each="i : ${#numbers.sequence(1, totalPages)}">
+					<span th:if="${i == currentPage}" th:text="'| ' + ${i} + ' '"></span>
+					<a th:href="@{/companys/{id}(id=${company.companyId}, page=${i})}" th:if="${i != currentPage}"
+						th:text="'| ' + ${i} + ' '"></a>
+				</th:block>
+
+				<a th:href="@{/companys/{id}(id=${company.companyId}, page=${currentPage+1})}"
+					th:if="${currentPage < totalPages}">次のページ</a>
+			</div>
+			<div class="no-data" th:if="${#lists.isEmpty(projects)}">
+				現在、この業者に紐づく案件はありません。
+			</div>
+		</div>
+	</main>
+</body>
+
+</html>

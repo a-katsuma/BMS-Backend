@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<title>見積編集 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+	<nav class="sidebar">
+
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}" class="active">案件管理</a></li>
+			<li><a th:href="@{/companys}">業者管理</a></li>
+		</ul>
+	</nav>
+	<main class="main-content">
+		<header>
+			<h1>見積編集</h1>
+		</header>
+
+		<div class="card">
+			<h3>見積内容の編集</h3>
+
+			<form th:action="@{/projects/{pid}/quotes/edit/{id}(pid=${quoteForm.projectId}, id=${quoteForm.quoteId})}"
+				th:object="${quoteForm}" method="post" enctype="multipart/form-data">
+
+				<input type="hidden" th:field="*{quoteId}">
+				<input type="hidden" th:field="*{projectId}">
+				<input type="hidden" th:field="*{quoteStatus}">
+
+				<dl class="detail-list">
+					<div class="detail-item">
+						<dt>現在の見積書</dt>
+						<dd>
+							<a th:href="@{'/' + *{quoteFilepath}}" target="_blank">PDFを確認</a>
+						</dd>
+					</div>
+					<div class="detail-item">
+						<dt>ファイルを選択</dt>
+						<dd>
+							<input type="file" name="file" accept=".pdf"
+								th:classappend="${#fields.hasErrors('quoteFilepath')} ? 'field-error' : ''">
+							<span class="error-text" th:if="${#fields.hasErrors('quoteFilepath')}"
+								th:errors="*{quoteFilepath}"></span>
+						</dd>
+					</div>
+					<div class="detail-item">
+						<dt>判定期限</dt>
+						<dd>
+							<input type="date" th:field="*{deadlineDate}" required
+								th:classappend="${#fields.hasErrors('deadlineDate')} ? 'field-error' : ''">
+							<span class="error-text" th:if="${#fields.hasErrors('deadlineDate')}"
+								th:errors="*{deadlineDate}"></span>
+						</dd>
+					</div>
+					<div class="detail-item">
+						<dt>現在のステータス</dt>
+						<dd th:text="*{quoteStatus}"></dd>
+					</div>
+				</dl>
+
+				<div class="action-buttons-form">
+					<button type="submit" class="btn btn-primary">更新する</button>
+					<a th:href="@{/projects/{pid}(pid=${quoteForm.projectId})}" class="btn">キャンセル</a>
+				</div>
+			</form>
+		</div>
+	</main>
+</body>
+
+</html>

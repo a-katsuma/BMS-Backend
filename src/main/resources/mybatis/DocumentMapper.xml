@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- -->
+<mapper namespace="com.example.app.mapper.DocumentMapper">
+
+	<!--①全件取得(他ページ等で利用) -->
+	<select id="selectByProjectId" resultType="Document">
+		SELECT * FROM
+		documents WHERE project_id = #{projectId} ORDER BY
+		doc_created_at DESC
+	</select>
+
+	<select id="selectByClientId" resultType="Document">
+		SELECT * FROM documents
+		WHERE client_id = #{clientId} ORDER BY
+		doc_created_at DESC
+	</select>
+
+	<!--②１件取得(編集用) -->
+	<select id="selectById" resultType="Document">
+		SELECT * FROM documents WHERE
+		doc_id = #{docId}
+	</select>
+
+	<!--⑤新規登録 -->
+	<insert id="insert" parameterType="Document">
+		INSERT INTO documents
+		(project_id, client_id, doc_file_path, doc_title,
+		doc_type,
+		doc_remarks)
+		VALUES (#{projectId}, #{clientId}, #{docFilePath},
+		#{docTitle}, #{docType},
+		#{docRemarks})
+	</insert>
+
+	<!--⑥編集 -->
+	<update id="update" parameterType="Document">
+		UPDATE documents
+		SET project_id
+		= #{projectId},
+		client_id = #{clientId},
+		doc_file_path = #{docFilePath},
+		doc_title = #{docTitle},
+		doc_type = #{docType},
+		doc_remarks =
+		#{docRemarks}
+		WHERE doc_id = #{docId}
+	</update>
+
+	<!--⑦削除 -->
+	<delete id="delete" parameterType="java.lang.Integer">
+		DELETE FROM documents WHERE
+		doc_id = #{docId}
+	</delete>
+
+</mapper>

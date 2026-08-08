@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>顧客編集 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+<!--	<script th:src="@{/js/input.js}"></script>-->
+	<script src="https://yubinbango.github.io/yubinbango/yubinbango.js" charset="UTF-8" defer></script>
+
+</head>
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}" class="active">顧客管理</a></li>
+			<li><a th:href="@{/projects}">案件管理</a></li>
+			<li><a th:href="@{/companys}">業者管理</a></li>
+		</ul>
+	</nav>
+	<main class="main-content">
+		<header>
+			<h1>顧客情報編集</h1>
+		</header>
+		<div class="card">
+			<form th:action="@{/clients/edit/{id}(id=${clientForm.clientId})}" th:object="${clientForm}" method="post"
+				class="edit-form h-adr">
+				<div class="alert alert-danger" th:if="${#fields.hasAnyErrors()}">
+					<p>入力内容にエラーがあります。メッセージの内容を確認してください。</p>
+				</div>
+				<input type="hidden" class="p-country-name" value="Japan">
+				<input type="hidden" th:field="*{clientId}">
+				<div class="form-vertical-layout">
+					<div class="form-group-block">
+						<label>顧客名 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{clientName}" placeholder="顧客名を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('clientName')}"
+							th:errors="*{clientName}"></span>
+					</div>
+					<div class="form-group-block">
+					    <label>フリガナ <span class="required">(必須)</span></label>
+					    <input type="text" th:field="*{clientKana}" placeholder="フリガナを入力">
+					    <span class="error-text" th:if="${#fields.hasErrors('clientKana')}"
+					        th:errors="*{clientKana}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>郵便番号 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{clientPostalcode}" class="p-postal-code"
+							placeholder="郵便番号を入力(ハイフンなし)" maxlength="7">
+						<span class="error-text" th:if="${#fields.hasErrors('clientPostalcode')}"
+							th:errors="*{clientPostalcode}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>住所 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{clientAddress}" class="p-region p-locality p-street-address"
+							placeholder="顧客住所を入力">
+						<span class="error-text" th:if="${#fields.hasErrors('clientAddress')}"
+							th:errors="*{clientAddress}"></span>
+					</div>
+					<div class="form-group-block">
+						<label>電話番号 <span class="required">(必須)</span></label>
+						<input type="text" th:field="*{clientPhone}" placeholder="電話番号を入力(ハイフンなし)">
+						<span class="error-text" th:if="${#fields.hasErrors('clientPhone')}"
+							th:errors="*{clientPhone}"></span>
+					</div>
+
+
+					<div class="action-buttons-form">
+						<button type="submit" class="btn btn-primary">更新する</button>
+						<a th:href="@{/clients}" class="btn btn-cancel">戻る</a>
+					</div>
+				</div>
+			</form>
+		</div>
+	</main>
+</body>
+
+</html>

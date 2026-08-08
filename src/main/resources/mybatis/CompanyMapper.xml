@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- -->
+<mapper namespace="com.example.app.mapper.CompanyMapper">
+
+	<!-- ①全件取得(他ページ等で利用) -->
+	<select id="selectAll" resultType="Company">
+		select * from companies
+	</select>
+
+	<!-- ②１件取得(編集用) -->
+	<select id="selectById" parameterType="int" resultType="Company">
+		select *
+		from companies
+		where company_id = #{companyId}
+
+	</select>
+
+	<!-- ③ページング付き全件取得 -->
+	<select id="selectAllWithPage" resultType="Company">
+		SELECT * FROM
+		companies ORDER BY company_kana ASC LIMIT #{limit} OFFSET #{offset}
+	</select>
+	<select id="countAll" resultType="long">
+		SELECT COUNT(*) FROM companies
+	</select>
+
+	<!-- ④カナ範囲指定ページング付き取得 -->
+	<select id="selectByKanaWithPage" resultType="Company">
+		SELECT * FROM companies
+		WHERE company_kana >= #{start} AND company_kana <![CDATA[<]]>
+		#{end}
+		ORDER BY company_kana ASC
+		LIMIT #{limit} OFFSET #{offset}
+	</select>
+
+	<select id="countByKanaRange" resultType="long">
+		SELECT COUNT(*) FROM companies
+		WHERE company_kana >= #{start} AND
+		company_kana <![CDATA[<]]>
+		#{end}
+	</select>
+
+
+
+
+	<!-- ⑤新規登録 -->
+	<insert id="insert" parameterType="Company"
+		useGeneratedKeys="true" keyProperty="companyId">
+		insert into companies
+		(company_name, company_postalcode, company_address, company_phone,
+		company_kana)
+		values (#{companyName}, #{companyPostalcode},
+		#{companyAddress},
+		#{companyPhone}, #{companyKana})
+	</insert>
+
+	<!-- ⑥編集 -->
+	<update id="update" parameterType="Company">
+		update companies
+		set
+		company_name = #{companyName},
+		company_kana = #{companyKana},
+		company_postalcode = #{companyPostalcode},
+		company_address =
+		#{companyAddress},
+		company_phone = #{companyPhone}
+		where company_id =
+		#{companyId}
+	</update>
+
+	<!-- ⑦削除 -->
+	<delete id="delete" parameterType="int">
+		delete from companies
+		where
+		company_id = #{companyId}
+	</delete>
+
+</mapper>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8" , name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>案件管理 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}">
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+
+</head>
+
+<body>
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/home}">ホーム</a></li>
+			<li><a th:href="@{/clients}">顧客管理</a></li>
+			<li><a th:href="@{/projects}" class="active">案件管理</a></li>
+			<li><a th:href="@{/companys}">業者管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>案件管理</h1>
+		</header>
+
+		<div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}">
+		</div>
+		<!--				<div class="alert" th:if="${successMessage}" th:text="${successMessage}"></div>-->
+
+
+		<div class="action-bar">
+			<a th:href="@{/projects/add}" class="btn btn-primary">新規案件登録</a>
+		</div>
+
+		<div class="card">
+			<h3>案件一覧</h3>
+			<table class="data-table" th:if="${not #lists.isEmpty(projects)}">
+				<thead>
+					<tr>
+						<!--						<th>登録日</th>-->
+						<th>顧客名</th>
+						<th>案件名</th>
+						<th>発注業者</th>
+						<th>案件状態</th>
+						<th>見積状態</th>
+						<th>操作</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="p : ${projects}">
+						<td data-label="顧客名" th:text="${p.clientName}"></td>
+						<td data-label="案件名" th:text="${p.projectName}"></td>
+						<td data-label="発注先" th:text="${p.companyName}"></td>
+						<td data-label="案件状態" th:text="${p.status}"></td>
+						<td data-label="見積状態">
+							<span th:if="${quoteService.isExpired(p)}" class="text-danger">
+								期限切れ
+							</span>
+							<span th:unless="${quoteService.isExpired(p)}"
+								th:text="${p.latestQuoteStatus ?: '見積中'}"></span>
+						</td>
+
+						<td data-label="操作">
+							<a th:href="@{/projects/{id}(id=${p.projectId})}" class="btn btn-primary"
+								style="padding: 5px 15px;">詳細</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<div class="pagination" th:if="${totalPages > 0}">
+				<a th:href="@{/projects(page=${currentPage-1})}" th:if="${currentPage > 1}">前のページ</a>
+
+				<th:block th:if="${totalPages > 1}" th:each="i : ${#numbers.sequence(1, totalPages)}">
+					<span th:if="${i == currentPage}" th:text="'| ' + ${i} + ' '"></span>
+					<a th:unless="${i == currentPage}" th:href="@{/projects(page=${i})}"
+						th:text="'| ' + ${i} + ' '"></a>
+				</th:block>
+
+				<a th:href="@{/projects(page=${currentPage+1})}" th:if="${currentPage < totalPages}">次のページ</a>
+			</div>
+			<div class="no-data" th:if="${#lists.isEmpty(projects)}">現在、登録されている案件はありません。</div>
+		</div>
+	</main>
+</body>
+
+</html>

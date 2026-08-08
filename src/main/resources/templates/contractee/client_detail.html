@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>顧客詳細 | BMS</title>
+	<link rel="stylesheet" th:href="@{/css/reset.css}" />
+	<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body class="theme-contractee">
+	<nav class="sidebar">
+		<div class="sidebar-logo">BMS System</div>
+		<ul>
+			<li><a th:href="@{/contractee/home}">ホーム</a></li>
+			<li><a th:href="@{/contractee/clients}" class="active">顧客管理</a></li>
+			<li><a th:href="@{/contractee/projects}">案件管理</a></li>
+		</ul>
+	</nav>
+
+	<main class="main-content">
+		<header>
+			<h1>顧客詳細</h1>
+			<p>お疲れ様です：<span th:text="${currentUser.name}"></span> さん</p>
+
+		</header>
+
+		<div class="card">
+			<h3>顧客基本情報</h3>
+			<dl class="detail-list">
+				<div class="detail-item">
+					<dt>顧客名</dt>
+					<dd th:text="${client.clientName}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>フリガナ</dt>
+					<dd th:text="${client.clientKana}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>郵便番号</dt>
+					<dd th:text="${client.formattedClientPostalcode}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>住所</dt>
+					<dd th:text="${client.clientAddress}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>電話番号</dt>
+					<dd th:text="${client.formattedClientPhone}"></dd>
+				</div>
+				<div class="detail-item">
+					<dt>関連資料</dt>
+					<dd>
+						<a th:href="@{/contractee/clients/{id}/documents(id=${client.clientId})}">資料一覧へ</a>
+					</dd>
+				</div>
+
+			</dl>
+
+			<div class="action-buttons-form" style="margin-top: 20px; display: flex; gap: 10px;">
+				<a th:href="@{/contractee/clients}" class="btn">顧客一覧へ戻る</a>
+			</div>
+		</div>
+
+		<div class="card">
+			<h3>関連案件一覧</h3>
+			<table class="data-table" th:if="${not #lists.isEmpty(projects)}">
+				<thead>
+					<tr>
+						<th>案件名</th>
+						<th>ステータス</th>
+						<th>操作</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="p : ${projects}">
+						<td data-label="案件名" th:text="${p.projectName}"></td>
+						<td data-label="ステータス" th:text="${p.status}"></td>
+						<td data-label="操作">
+							<a th:href="@{/contractee/projects/{id}(id=${p.projectId})}" class="btn">詳細</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<a th:href="@{/contractee/clients/{id}(id=${client.clientId}, page=${currentPage-1})}"
+			   th:if="${currentPage > 1}">前のページ</a>
+
+			<th:block th:each="i : ${#numbers.sequence(1, totalPages)}">
+			    <span th:if="${i == currentPage}" th:text="'| ' + ${i} + ' '"></span>
+			    <a th:href="@{/contractee/clients/{id}(id=${client.clientId}, page=${i})}" 
+			       th:if="${i != currentPage}"
+			       th:text="'| ' + ${i} + ' '"></a>
+			</th:block>
+
+			<a th:href="@{/contractee/clients/{id}(id=${client.clientId}, page=${currentPage+1})}"
+			   th:if="${currentPage < totalPages}">次のページ</a>
+			<div class="no-data" th:if="${#lists.isEmpty(projects)}">
+				現在、この顧客に紐づく案件はありません。
+			</div>
+		</div>
+	</main>
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- -->
+<mapper namespace="com.example.app.mapper.ClientMapper">
+
+	<!--管理者用 -->
+
+	<!-- ①全件取得（セレクトボックス等での利用） -->
+	<select id="selectAll" resultType="Client">
+		select * from clients
+	</select>
+
+	<!-- ②１件取得(編集用) -->
+	<select id="selectById" parameterType="java.lang.Integer"
+		resultType="Client">
+		select * from clients where client_id = #{id}
+	</select>
+
+	<!-- ③ページング付き全件取得 -->
+	<select id="selectAllWithPage" resultType="Client">
+		SELECT * FROM clients
+		ORDER BY client_kana ASC LIMIT #{offset}, #{num}
+	</select>
+	<select id="countAll" resultType="long">
+		SELECT COUNT(*) FROM clients
+	</select>
+
+	<!-- ④カナ範囲指定ページング付き取得 -->
+	<select id="selectByKanaWithPage" resultType="Client">
+		SELECT * FROM clients
+		WHERE client_kana >= #{kanaStart}
+		<if test="kanaEnd != null and kanaEnd != ''">
+			AND client_kana &lt; #{kanaEnd}
+		</if>
+		ORDER BY client_kana ASC
+		LIMIT #{offset}, #{num}
+	</select>
+	<select id="countByKanaRange" resultType="long">
+		SELECT COUNT(*) FROM clients
+		WHERE client_kana >= #{kanaStart}
+		<if test="kanaEnd != null">
+			AND client_kana &lt; #{kanaEnd}
+		</if>
+	</select>
+
+	<!-- ⑤新規登録 -->
+	<insert id="insert" parameterType="Client">
+		insert into clients
+		(client_name, client_kana, client_postalcode,
+		client_address,
+		client_phone)
+		values (#{clientName}, #{clientKana},
+		#{clientPostalcode}, #{clientAddress},
+		#{clientPhone})
+	</insert>
+
+	<!-- ⑥編集 -->
+	<update id="update" parameterType="Client">
+		update clients
+		set client_name
+		= #{clientName},
+		client_kana = #{clientKana}, client_postalcode =
+		#{clientPostalcode},
+		client_address = #{clientAddress},
+		client_phone =
+		#{clientPhone}
+		where
+		client_id = #{clientId}
+	</update>
+
+	<!-- ⑦削除 -->
+	<delete id="delete" parameterType="java.lang.Integer">
+		delete from clients
+		where
+		client_id = #{id}
+	</delete>
+
+
+	<!-- 発注業者用 -->
+
+	<!--①全件取得-->
+	<select id="selectByCompanyId" parameterType="java.lang.Integer"
+		resultType="Client">
+		SELECT DISTINCT c.* FROM clients c
+		JOIN projects p ON
+		c.client_id = p.client_id
+		WHERE p.company_id = #{companyId}
+	</select>
+
+	<!-- ③ページング付き全件取得 -->
+	<select id="selectByCompanyIdWithPage" resultType="Client">
+		SELECT
+		DISTINCT c.* FROM clients c
+		JOIN projects p ON c.client_id =
+		p.client_id
+		WHERE p.company_id = #{companyId}
+		ORDER BY c.client_kana ASC
+		LIMIT #{offset}, #{num}
+	</select>
+	<select id="countByCompanyId" resultType="long">
+		SELECT COUNT(DISTINCT
+		c.client_id) FROM clients c
+		JOIN projects p ON c.client_id =
+		p.client_id
+		WHERE p.company_id = #{companyId}
+	</select>
+
+	<!--④カナ範囲指定ページング付き取得 -->
+	<select id="selectByCompanyIdAndKanaWithPage"
+		resultType="Client">
+		SELECT DISTINCT c.* FROM clients c
+		JOIN projects p ON c.client_id =
+		p.client_id
+		WHERE p.company_id = #{companyId}
+		AND c.client_kana >=
+		#{kanaStart}
+		<if test="kanaEnd != null">
+			AND c.client_kana &lt; #{kanaEnd}
+		</if>
+		ORDER BY c.client_kana ASC
+		LIMIT #{offset}, #{num}
+	</select>
+	<select id="countByCompanyIdAndKana" resultType="long">
+		SELECT COUNT(DISTINCT c.client_id) FROM clients c
+		JOIN projects p ON
+		c.client_id = p.client_id
+		WHERE p.company_id = #{companyId}
+		AND
+		c.client_kana >= #{kanaStart}
+		<if test="kanaEnd != null">
+			AND c.client_kana &lt; #{kanaEnd}
+		</if>
+	</select>
+
+
+</mapper>
