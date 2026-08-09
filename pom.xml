@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>ProjectSystem</artifactId>
+	<artifactId>BMS-Backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>ProjectSystem</name>
+	<name>BMS-Backend</name>
 	<description>制作</description>
 	<url/>
 	<licenses>
