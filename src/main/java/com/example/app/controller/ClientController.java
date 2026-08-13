@@ -63,7 +63,11 @@ public class ClientController {
 			return ResponseEntity.badRequest().body(errors.getAllErrors());
 		}
 		clientService.addClient(client);
-		return ResponseEntity.ok(Map.of("message", "顧客情報を登録しました。"));
+
+		// IDとメッセージを両方返す形式
+		return ResponseEntity.ok(Map.of(
+				"clientId", client.getClientId(),
+				"message", "顧客情報を登録しました。"));
 	}
 
 	// ③ 編集データ取得 API

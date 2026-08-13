@@ -51,7 +51,13 @@
 		WHERE q.project_id = p.project_id
 		ORDER BY q.quote_date DESC,
 		q.quote_id DESC
-		LIMIT 1) AS latest_quote_status
+		LIMIT 1) AS latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC,
+		q.quote_id DESC
+		LIMIT 1) AS deadline_date
 		FROM projects p
 		LEFT JOIN
 		clients c ON p.client_id = c.client_id
@@ -67,7 +73,8 @@
 	</select>
 
 	<!-- ⑤新規登録 -->
-	<insert id="insert" parameterType="Project">
+	<insert id="insert" parameterType="Project"
+		useGeneratedKeys="true" keyProperty="projectId">
 		insert into projects
 		(company_id, client_id, project_name, contract_type, status,
 		project_remarks,
@@ -78,6 +85,20 @@
 		#{projectRemarks},
 		#{projectStaffname})
 	</insert>
+
+	<!-- ⑤新規登録 -->
+
+	<!-- <insert id="insert" parameterType="Project"> -->
+	<!-- insert into projects -->
+	<!-- (company_id, client_id, project_name, contract_type, status, -->
+	<!-- project_remarks, -->
+	<!-- project_staffname) -->
+	<!-- values -->
+	<!-- (#{companyId}, #{clientId}, -->
+	<!-- #{projectName}, #{contractType}, #{status}, -->
+	<!-- #{projectRemarks}, -->
+	<!-- #{projectStaffname}) -->
+	<!-- </insert> -->
 
 	<!-- ⑥編集 -->
 	<update id="update" parameterType="Project">
@@ -103,7 +124,7 @@
 	</delete>
 
 	<!-- 発注業者用 -->
-	
+
 	<!-- ③ページング付き全件取得 発注業者 -->
 	<select id="selectByCompanyIdWithPage" resultType="Project">
 		SELECT p.*,

@@ -5,22 +5,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
-
-import jakarta.validation.Valid;
+import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.Errors;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.app.domain.Quote;
 import com.example.app.service.ProjectService;
@@ -28,132 +26,129 @@ import com.example.app.service.QuoteService;
 
 import lombok.RequiredArgsConstructor;
 
-@Controller
+@RestController
 @RequiredArgsConstructor
-@RequestMapping("/projects/{projectId}/quotes") // 案件に紐づくパス
+@RequestMapping("/api/projects/{projectId}/quotes") // Reactに合わせて /api を追加
 public class QuoteController {
 
 	private final QuoteService quoteService;
 	private final ProjectService projectService;
 
-	//① 一覧表示（ここで全見積と、各見積の履歴をまとめて取得）
-	// QuoteController.java の showList を以下で上書き
+	// ① 一覧表示（JSONで案件情報と見積りリストを返却）
 	@GetMapping
-	public String showList(@PathVariable Integer projectId, Model model) {
-		model.addAttribute("project", projectService.getProjectById(projectId));
+	public ResponseEntity<Map<String, Object>> showList(@PathVariable Integer projectId) {
 		List<Quote> quotes = quoteService.getQuotesByProjectId(projectId);
 
 		if (quotes != null) {
 			for (Quote q : quotes) {
 				if (q != null) {
-					// ここで必ず初期化しておく
 					q.setHistoryList(quoteService.getHistoriesByQuoteId(q.getQuoteId()));
 				}
 			}
 		}
-		model.addAttribute("quotes", quotes);
-		model.addAttribute("projectId", projectId);
-		return "quote/quote_list";
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("project", projectService.getProjectById(projectId));
+		response.put("quotes", quotes);
+		response.put("projectId", projectId);
+
+		return ResponseEntity.ok(response);
 	}
 
-	// ② 新規登録フォーム表示
-	@GetMapping("/add")
-	public String showAddForm(@PathVariable Integer projectId, Model model) {
-		Quote quote = new Quote();
-		quote.setProjectId(projectId); // 案件IDをセット
-		model.addAttribute("quoteForm", quote);
-		return "quote/quote_register";
+	// ② 編集用データ取得（Reactの axios.get に対応）
+	@GetMapping("/{id}")
+	public ResponseEntity<Quote> showEditForm(@PathVariable Integer projectId, @PathVariable Integer id) {
+		Quote quote = quoteService.getQuoteById(id);
+		return ResponseEntity.ok(quote);
 	}
 
-	//③ 新規登録実行
+	// ③ 新規登録実行
 	@PostMapping("/add")
-	public String addQuote(@PathVariable Integer projectId,
-			@ModelAttribute("quoteForm") Quote quote,
-			@RequestParam("file") MultipartFile file,
-			@RequestParam("deadlineDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineDate, // 追加
-			RedirectAttributes ra) {
+	public ResponseEntity<?> addQuote(
+			@PathVariable Integer projectId,
+			@RequestParam("quoteStatus") String quoteStatus,
+			@RequestParam("deadlineDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineDate,
+			@RequestParam("file") MultipartFile file) {
 		try {
-			// 1. ファイル保存処理
 			String uploadDir = "uploads/";
-			java.nio.file.Files.createDirectories(java.nio.file.Paths.get(uploadDir));
+			Files.createDirectories(Paths.get(uploadDir));
 			String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-			java.nio.file.Path path = java.nio.file.Paths.get(uploadDir + fileName);
-			java.nio.file.Files.write(path, file.getBytes());
+			Path path = Paths.get(uploadDir + fileName);
+			Files.write(path, file.getBytes());
 
-			// 2. DB保存用データの設定
+			Quote quote = new Quote();
 			quote.setProjectId(projectId);
 			quote.setQuoteFilepath(uploadDir + fileName);
-			quote.setQuoteDate(java.time.LocalDate.now());
-			quote.setQuoteStatus("未判定");
-			quote.setDeadlineDate(deadlineDate); // ★ここで期限をセット
+			quote.setQuoteDate(LocalDate.now());
+			quote.setQuoteStatus(quoteStatus);
+			quote.setDeadlineDate(deadlineDate);
 
 			quoteService.addQuote(quote);
-			ra.addFlashAttribute("successMessage", "見積情報を登録しました。");
 
-		} catch (java.io.IOException e) {
+			Map<String, String> response = new HashMap<>();
+			response.put("message", "見積情報を登録しました。");
+			return ResponseEntity.ok(response);
+
+		} catch (IOException e) {
 			e.printStackTrace();
-			ra.addFlashAttribute("errorMessage", "ファイルの保存に失敗しました。");
+			return ResponseEntity.internalServerError().body(Map.of("message", "ファイルの保存に失敗しました。"));
 		}
-
-		return "redirect:/projects/" + projectId;
 	}
 
-	//④ 編集フォーム表示
-	@GetMapping("/edit/{id}")
-	public String showEditForm(@PathVariable Integer projectId, @PathVariable Integer id, Model model) {
-		model.addAttribute("quoteForm", quoteService.getQuoteById(id));
-		return "quote/quote_edit";
-	}
-
-	//⑤ 更新実行
+	// ④ 更新実行（Reactの axios.post /edit/{id} に対応）
 	@PostMapping("/edit/{id}")
-	public String editQuote(@PathVariable Integer projectId, @PathVariable Integer id,
-			@Valid @ModelAttribute("quoteForm") Quote quote, // フォームから受け取ったデータ
-			Errors errors,
-			@RequestParam(value = "file", required = false) MultipartFile file,
-			RedirectAttributes ra) throws IOException {
+	public ResponseEntity<?> editQuote(
+			@PathVariable Integer projectId,
+			@PathVariable Integer id,
+			@RequestParam("quoteStatus") String quoteStatus,
+			@RequestParam("deadlineDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineDate,
+			@RequestParam(value = "file", required = false) MultipartFile file) {
 
-		// 1. カスタムバリデーション
-		if (file == null || file.isEmpty()) {
-			errors.rejectValue("quoteFilepath", "NotEmpty.quoteForm.quoteFilepath");
-		}
-
-		// 2. エラー判定
-		if (errors.hasErrors()) {
-			return "quote/quote_edit";
-		}
-
-		// 3. 正常系処理
 		Quote oldQuote = quoteService.getQuoteById(id);
+		if (oldQuote == null) {
+			return ResponseEntity.notFound().build();
+		}
 
-		String uploadDir = "uploads/";
-		Files.createDirectories(Paths.get(uploadDir));
-		String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+		String filePathStr = oldQuote.getQuoteFilepath();
 
-		// java.nio.file.Path を使用
-		Path path = Paths.get(uploadDir + fileName);
-		Files.write(path, file.getBytes());
+		// 新しいファイルがアップロードされた場合のみ差し替え
+		if (file != null && !file.isEmpty()) {
+			try {
+				String uploadDir = "uploads/";
+				Files.createDirectories(Paths.get(uploadDir));
+				String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+				Path path = Paths.get(uploadDir + fileName);
+				Files.write(path, file.getBytes());
+				filePathStr = uploadDir + fileName;
+			} catch (IOException e) {
+				e.printStackTrace();
+				return ResponseEntity.internalServerError().body(Map.of("message", "ファイルの保存に失敗しました。"));
+			}
+		}
 
-		quote.setQuoteId(id);
-		quote.setProjectId(projectId);
-		quote.setQuoteFilepath(uploadDir + fileName);
-		quote.setQuoteDate(java.time.LocalDate.now());
+		Quote newQuote = new Quote();
+		newQuote.setQuoteId(id);
+		newQuote.setProjectId(projectId);
+		newQuote.setQuoteFilepath(filePathStr);
+		newQuote.setQuoteDate(LocalDate.now());
+		newQuote.setQuoteStatus(quoteStatus);
+		newQuote.setDeadlineDate(deadlineDate);
 
-		// ★判定期限をフォームから取得してセット
-		quote.setDeadlineDate(quote.getDeadlineDate());
+		quoteService.editQuote(oldQuote, newQuote);
 
-		quoteService.editQuote(oldQuote, quote);
-
-		ra.addFlashAttribute("successMessage", "見積情報を更新しました。");
-		return "redirect:/projects/" + projectId;
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "見積情報を更新しました。");
+		return ResponseEntity.ok(response);
 	}
 
-	// ⑥ 削除
-	@GetMapping("/delete/{id}")
-	public String deleteQuote(@PathVariable Integer projectId, @PathVariable Integer id, RedirectAttributes ra) {
+	// ⑤ 削除
+	@DeleteMapping("/{id}") // または @PathVariable の変数名に合わせて quoteId など
+	public ResponseEntity<Map<String, String>> deleteQuote(
+			@PathVariable Integer projectId,
+			@PathVariable Integer id) {
 		quoteService.deleteQuote(id);
-		ra.addFlashAttribute("successMessage", "見積情報を削除しました。");
-		return "redirect:/projects/" + projectId;
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "見積情報を削除しました。");
+		return ResponseEntity.ok(response);
 	}
-
 }

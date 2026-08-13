@@ -44,15 +44,29 @@
 	</select>
 
 	<!-- ⑤新規登録 -->
-	<insert id="insert" parameterType="Client">
+	<insert id="insert" parameterType="Client"
+		useGeneratedKeys="true" keyProperty="clientId">
 		insert into clients
-		(client_name, client_kana, client_postalcode,
+		(client_name,
+		client_kana, client_postalcode,
 		client_address,
 		client_phone)
-		values (#{clientName}, #{clientKana},
+		values
+		(#{clientName}, #{clientKana},
 		#{clientPostalcode}, #{clientAddress},
 		#{clientPhone})
 	</insert>
+
+	<!-- ⑤新規登録 -->
+	<!-- <insert id="insert" parameterType="Client"> -->
+	<!-- insert into clients -->
+	<!-- (client_name, client_kana, client_postalcode, -->
+	<!-- client_address, -->
+	<!-- client_phone) -->
+	<!-- values (#{clientName}, #{clientKana}, -->
+	<!-- #{clientPostalcode}, #{clientAddress}, -->
+	<!-- #{clientPhone}) -->
+	<!-- </insert> -->
 
 	<!-- ⑥編集 -->
 	<update id="update" parameterType="Client">
@@ -78,7 +92,7 @@
 
 	<!-- 発注業者用 -->
 
-	<!--①全件取得-->
+	<!--①全件取得 -->
 	<select id="selectByCompanyId" parameterType="java.lang.Integer"
 		resultType="Client">
 		SELECT DISTINCT c.* FROM clients c

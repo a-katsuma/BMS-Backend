@@ -1,19 +1,21 @@
 package com.example.app.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.validation.Valid;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.Errors;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.Project;
 import com.example.app.domain.Quote;
@@ -24,104 +26,106 @@ import com.example.app.service.QuoteService;
 
 import lombok.RequiredArgsConstructor;
 
-@Controller
-@RequiredArgsConstructor // Autowiredを不要にする魔法
-@RequestMapping("/projects") // URLのグループ分け
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/projects") // API用のプレフィックスに変更
 public class ProjectController {
-
-	//1ページ当たりの備品表示件数
-	// private final int NUM_PER_PAGE = 5;
 
 	private final ProjectService projectService;
 	private final ClientService clientService;
-	private final CompanyService companyService; // 追加しました
+	private final CompanyService companyService;
 	private final QuoteService quoteService;
 
-	// ① 一覧表示
+	// ① 一覧表示 (ページング情報とプロジェクトリストをMapでまとめてJSON返却)
 	@GetMapping
-	public String showList(@RequestParam(defaultValue = "1") int page, Model model) {
-		model.addAttribute("projects", projectService.getAllProjects(page));
-		model.addAttribute("totalPages", projectService.getTotalPagesAll());
-		model.addAttribute("currentPage", page);
-		model.addAttribute("quoteService", quoteService);
-		return "project/project_list";
+	public ResponseEntity<Map<String, Object>> showList(@RequestParam(defaultValue = "1") int page) {
+		List<Project> projects = projectService.getAllProjects(page);
+		int totalPages = projectService.getTotalPagesAll();
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("projects", projects);
+		response.put("totalPages", totalPages);
+		response.put("currentPage", page);
+
+		return ResponseEntity.ok(response);
 	}
 
-	// ② 登録画面表示
-	@GetMapping("/add")
-	public String showAddForm(Model model) {
-		model.addAttribute("projectForm", new Project());
-		model.addAttribute("clients", clientService.getAllClients());
-		model.addAttribute("companies", companyService.getAllCompanys()); // 追加しました
-		return "project/project_register";
+	// ② 登録画面用データ取得（セレクトボックス用の顧客・業者一覧を返す）
+	@GetMapping("/form-data")
+	public ResponseEntity<Map<String, Object>> getFormData() {
+		Map<String, Object> response = new HashMap<>();
+		response.put("clients", clientService.getAllClients());
+		response.put("companies", companyService.getAllCompanys());
+		return ResponseEntity.ok(response);
 	}
 
-	// ③ 登録処理
-	@PostMapping("/add")
-	public String addProject(@Valid @ModelAttribute("projectForm") Project project, Errors errors, Model model,
-			RedirectAttributes ra) {
-		System.out.println("バリデーションエラー数: " + errors.getErrorCount());
-		if (errors.hasErrors()) {
-			model.addAttribute("clients", clientService.getAllClients());
-			model.addAttribute("companies", companyService.getAllCompanys()); // エラー戻り時にも必要
-			return "project/project_register";
+	// ③ 登録処理の例
+		@PostMapping("/add")
+		public ResponseEntity<?> addProject(@Valid @RequestBody Project project, Errors errors) {
+			if (errors.hasErrors()) {
+				return ResponseEntity.badRequest().body(errors.getAllErrors());
+			}
+			
+			// 登録を実行
+			projectService.addProject(project);
+			
+			// もしここで project.getProjectId() が null になってしまう場合は、
+			// Service側でインサート後にIDを採番・取得する仕組みが必要です。
+			
+			Map<String, Object> response = new HashMap<>();
+			response.put("message", "案件を登録しました。");
+			response.put("projectId", project.getProjectId()); 
+
+			return ResponseEntity.ok(response);
 		}
-		projectService.addProject(project);
-		ra.addFlashAttribute("successMessage", "案件を登録しました。");
-		return "redirect:/projects";
-	}
 
-	// ④ 編集フォーム
+	// ④ 編集用データ取得
 	@GetMapping("/edit/{id}")
-	public String showEditForm(@PathVariable Integer id, Model model) {
-		model.addAttribute("projectForm", projectService.getProjectById(id));
-		model.addAttribute("clients", clientService.getAllClients());
-		model.addAttribute("companies", companyService.getAllCompanys()); // 追加しました
-		return "project/project_edit";
+	public ResponseEntity<Map<String, Object>> showEditForm(@PathVariable Integer id) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("project", projectService.getProjectById(id));
+		response.put("clients", clientService.getAllClients());
+		response.put("companies", companyService.getAllCompanys());
+		return ResponseEntity.ok(response);
 	}
 
-	//⑤ 更新処理
+	// ⑤ 更新処理
 	@PostMapping("/edit/{id}")
-	public String editProject(@PathVariable Integer id, @Valid @ModelAttribute("projectForm") Project project,
-			Errors errors, Model model, RedirectAttributes ra) {
+	public ResponseEntity<?> editProject(@PathVariable Integer id, @Valid @RequestBody Project project, Errors errors) {
 		if (errors.hasErrors()) {
-			model.addAttribute("clients", clientService.getAllClients());
-			model.addAttribute("companies", companyService.getAllCompanys());
-			return "project/project_edit";
+			return ResponseEntity.badRequest().body(errors.getAllErrors());
 		}
 
-		project.setProjectId(id); // IDを明示的にセット
+		project.setProjectId(id);
 		projectService.editProject(project);
 
-		ra.addFlashAttribute("successMessage", "案件情報を更新しました。");
-
-		// 確実に詳細画面 (/projects/1 など) へ遷移させる
-		return "redirect:/projects/" + id;
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "案件情報を更新しました。");
+		return ResponseEntity.ok(response);
 	}
 
 	// ⑥ 削除
-	@GetMapping("/delete/{id}")
-	public String deleteProject(@PathVariable Integer id, RedirectAttributes ra) {
+	@DeleteMapping("/{id}")
+	public ResponseEntity<Map<String, String>> deleteProject(@PathVariable Integer id) {
 		projectService.deleteProject(id);
-		ra.addFlashAttribute("successMessage", "案件を削除しました。");
-		return "redirect:/projects";
+		Map<String, String> response = new HashMap<>();
+		response.put("message", "案件を削除しました。");
+		return ResponseEntity.ok(response);
 	}
 
 	// ⑦ 詳細表示
 	@GetMapping("/{id}")
-	public String showDetail(@PathVariable Integer id, Model model) {
-		model.addAttribute("project", projectService.getProjectById(id));
-
-		// 1. 最新の見積を取得
+	public ResponseEntity<Map<String, Object>> showDetail(@PathVariable Integer id) {
+		Project project = projectService.getProjectById(id);
 		List<Quote> quotes = quoteService.getQuotesByProjectId(id);
-		if (quotes != null && !quotes.isEmpty()) {
-			model.addAttribute("latestQuote", quotes.get(0));
-		}
-
-		// 2. 過去の履歴を別テーブルから取得してセット
+		Quote latestQuote = (quotes != null && !quotes.isEmpty()) ? quotes.get(0) : null;
 		List<Quote> historyList = quoteService.getHistoriesByProjectId(id);
-		model.addAttribute("historyList", historyList);
 
-		return "project/project_detail";
+		Map<String, Object> response = new HashMap<>();
+		response.put("project", project);
+		response.put("latestQuote", latestQuote);
+		response.put("historyList", historyList);
+
+		return ResponseEntity.ok(response);
 	}
 }
