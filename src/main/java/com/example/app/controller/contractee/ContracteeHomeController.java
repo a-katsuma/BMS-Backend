@@ -1,10 +1,12 @@
 package com.example.app.controller.contractee;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.User;
 import com.example.app.mapper.UserMapper;
@@ -12,8 +14,8 @@ import com.example.app.service.QuoteService;
 
 import lombok.RequiredArgsConstructor;
 
-@Controller
-@RequestMapping("/contractee/home")
+@RestController
+@RequestMapping("/api/contractee/home") 
 @RequiredArgsConstructor
 public class ContracteeHomeController {
 
@@ -21,34 +23,38 @@ public class ContracteeHomeController {
 	private final UserMapper userMapper;
 
 	@GetMapping("")
-	public String showContracteeHome(
+	public Map<String, Object> showContracteeHome(
 	        @RequestParam(defaultValue = "1") Integer qPage,
-	        @RequestParam(defaultValue = "1") Integer pPage,
-	        Model model) {
+	        @RequestParam(defaultValue = "1") Integer pPage) {
 	    
 	    User currentUser = userMapper.selectById(2); 
 	    Integer companyId = currentUser.getCompanyId();
 	    
-	    // 設定
+	    // 発注業者用の表示仕様（上部：判定待ち5件、下部：見積り待ち3件）に合わせたリミット設定
 	    int pLimit = 5; // 判定待ち用
 	    int qLimit = 3; // 見積り待ち用
 	    
 	    int pOffset = (pPage - 1) * pLimit;
 	    int qOffset = (qPage - 1) * qLimit;
 
-	    // リスト取得（※必要に応じてMapperに offset, num 対応のSQLを追加してください）
-	    model.addAttribute("needQuoteList", quoteService.getAllNeedQuotesByCompanyId(companyId, qOffset, qLimit));
-	    model.addAttribute("pendingList", quoteService.getAllPendingJudgmentsByCompanyId(companyId, pOffset, pLimit));
-	    // ページ情報
-	    model.addAttribute("pTotalPages", (int) Math.ceil((double) quoteService.getTotalPagesPendingJudgmentByCompanyId(companyId) / pLimit));
-	    model.addAttribute("qTotalPages", (int) Math.ceil((double) quoteService.getTotalPagesNeedQuoteByCompanyId(companyId) / qLimit));
+	    // 返却用のデータ構造を作成
+	    Map<String, Object> response = new HashMap<>();
 	    
-	    model.addAttribute("pPage", pPage);
-	    model.addAttribute("qPage", qPage);
-	    model.addAttribute("currentUser", currentUser); // これがないとHTMLでエラーになります
-	    model.addAttribute("quoteService", quoteService);
+	    // リストデータの格納
+	    response.put("needQuoteList", quoteService.getAllNeedQuotesByCompanyId(companyId, qOffset, qLimit));
+	    response.put("pendingList", quoteService.getAllPendingJudgmentsByCompanyId(companyId, pOffset, pLimit));
 	    
-	    return "contractee/home";
+	    // ページ情報の格納
+	    int pTotalPages = (int) Math.ceil((double) quoteService.getTotalPagesPendingJudgmentByCompanyId(companyId) / pLimit);
+	    int qTotalPages = (int) Math.ceil((double) quoteService.getTotalPagesNeedQuoteByCompanyId(companyId) / qLimit);
+	    
+	    response.put("pTotalPages", pTotalPages > 0 ? pTotalPages : 1);
+	    response.put("qTotalPages", qTotalPages > 0 ? qTotalPages : 1);
+	    
+	    response.put("pPage", pPage);
+	    response.put("qPage", qPage);
+	    response.put("currentUser", currentUser);
+	    
+	    return response;
 	}
-
 }
