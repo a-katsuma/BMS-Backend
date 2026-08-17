@@ -1,11 +1,13 @@
 package com.example.app.controller.contractee;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.User;
 import com.example.app.mapper.UserMapper;
@@ -15,59 +17,59 @@ import com.example.app.util.FormatUtils;
 
 import lombok.RequiredArgsConstructor;
 
-@Controller
-@RequestMapping("/contractee/clients")
-@RequiredArgsConstructor // Autowiredを不要にする魔法
+@RestController
+@RequestMapping("/api/contractee/clients")
+@RequiredArgsConstructor 
 public class ContracteeClientController {
 
 	private final ClientService clientService;
 	private final ProjectService projectService;
 	private final FormatUtils fmt;
-	private final UserMapper userMapper; // 疑似ログイン用
+	private final UserMapper userMapper; // ホーム画面と同様に UserMapper を注入
 
-	//発注業者向け顧客一覧
+	// 発注業者向け顧客一覧（JSON返却）
 	@GetMapping
-	public String listClients(
+	public Map<String, Object> listClients(
 			@RequestParam(required = false, defaultValue = "") String kana,
-			@RequestParam(defaultValue = "1") int page,
-			Model model) {
+			@RequestParam(defaultValue = "1") int page) {
 
-		User currentUser = (User) model.getAttribute("currentUser");
+		// ホーム画面と同様にデータベースからID=2のユーザーを取得
+		User currentUser = userMapper.selectById(2);
+		Integer companyId = currentUser.getCompanyId();
+
+		Map<String, Object> response = new HashMap<>();
 
 		if (kana.isEmpty()) {
-			model.addAttribute("clients", clientService.getClientsByCompanyId(currentUser.getCompanyId(), page));
-			model.addAttribute("totalPages", clientService.getTotalPagesByCompanyId(currentUser.getCompanyId()));
+			response.put("clients", clientService.getClientsByCompanyId(companyId, page));
+			response.put("totalPages", clientService.getTotalPagesByCompanyId(companyId));
 		} else {
 			String start = fmt.getKanaRangeStart(kana);
 			String end = fmt.getKanaRangeEnd(kana);
-			model.addAttribute("clients",
-					clientService.getClientsByCompanyIdAndKana(currentUser.getCompanyId(), start, end, page));
-			model.addAttribute("totalPages",
-					clientService.getTotalPagesByCompanyIdAndKana(currentUser.getCompanyId(), start, end));
+			response.put("clients",
+					clientService.getClientsByCompanyIdAndKana(companyId, start, end, page));
+			response.put("totalPages",
+					clientService.getTotalPagesByCompanyIdAndKana(companyId, start, end));
 		}
 
-		// ★重要：ここで必ずセットされているか確認
-		model.addAttribute("currentPage", page);
-		model.addAttribute("currentKana", kana);
+		response.put("currentPage", page);
+		response.put("currentKana", kana);
 
-		return "contractee/client_list";
+		return response;
 	}
 
-	//発注業者向け顧客詳細表示（ContracteeController.java 内）
+	// 発注業者向け顧客詳細表示（JSON返却）
 	@GetMapping("/{id}")
-	public String detailClient(@PathVariable Integer id,
-			@RequestParam(defaultValue = "1") int page, // ページパラメータを追加
-			Model model) {
-		// 1. 顧客情報を取得
-		model.addAttribute("client", clientService.getClientById(id));
-
-		// 2. 関連案件をページ分割して取得 (1ページあたり3件とする場合)
+	public Map<String, Object> detailClient(@PathVariable Integer id,
+			@RequestParam(defaultValue = "1") int page) {
+		
+		Map<String, Object> response = new HashMap<>();
 		int limit = 3;
-		model.addAttribute("projects", projectService.getProjectsByClientId(id, page, limit));
-		model.addAttribute("totalPages", projectService.getTotalPagesByClientId(id, limit));
-		model.addAttribute("currentPage", page);
 
-		return "contractee/client_detail";
+		response.put("client", clientService.getClientById(id));
+		response.put("projects", projectService.getProjectsByClientId(id, page, limit));
+		response.put("totalPages", projectService.getTotalPagesByClientId(id, limit));
+		response.put("currentPage", page);
+
+		return response;
 	}
-
 }

@@ -1,39 +1,40 @@
 package com.example.app.controller.contractee;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.User;
+import com.example.app.mapper.UserMapper;
 import com.example.app.service.ClientService;
 import com.example.app.service.DocumentService;
-import com.example.app.service.UserService;
 
 import lombok.RequiredArgsConstructor;
 
-@Controller
-@RequestMapping("/contractee/clients/{id}/documents")
-@RequiredArgsConstructor // Autowiredを不要にする魔法
+@RestController
+@RequestMapping("/api/contractee/clients")
+@RequiredArgsConstructor 
 public class ContracteeDocumentController {
 
 	private final DocumentService documentService;
 	private final ClientService clientService;
-	private final UserService userService;
+	private final UserMapper userMapper; // 他のコントローラーと同様に UserMapper を注入
 
-	// 資料一覧表示
-	@GetMapping("")
-	public String listDocuments(@PathVariable("id") Integer clientId, Model model) {
+	// 発注業者向け資料一覧表示（JSON返却）
+	@GetMapping("/{id}/documents")
+	public Map<String, Object> listDocuments(@PathVariable("id") Integer clientId) {
 
-		User currentUser = (User) model.getAttribute("currentUser");
-		if (currentUser == null) {
-			return "redirect:/login"; // もしくはログインページへ飛ばす
-		}
+		// ログインユーザーの確認（必要に応じて使用）
+		User currentUser = userMapper.selectById(2);
 
-		model.addAttribute("client", clientService.getClientById(clientId));
-		model.addAttribute("documents", documentService.getDocumentsByClientId(clientId));
-		return "contractee/client_document";
+		Map<String, Object> response = new HashMap<>();
+		response.put("client", clientService.getClientById(clientId));
+		response.put("documents", documentService.getDocumentsByClientId(clientId));
+
+		return response;
 	}
-
 }
