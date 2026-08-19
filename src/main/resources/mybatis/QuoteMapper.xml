@@ -5,7 +5,7 @@
 
 	<!-- 管理者用 -->
 
-	<!-- ①全件取得（見積待ち） -->
+	<!-- ①全件取得（見積待ち/差戻し） -->
 	<select id="selectNeedQuoteQuotes" resultType="Quote">
 		SELECT
 		q.*,
@@ -21,7 +21,9 @@
 		comp ON p.company_id = comp.company_id
 		WHERE q.quote_id IS NULL OR
 		q.quote_status = '見積中'
-		ORDER BY p.project_id ASC
+		OR q.quote_status = '差戻し'
+		ORDER BY p.project_id
+		ASC
 	</select>
 
 	<!-- ①全件取得（判定待ち） -->
@@ -37,14 +39,14 @@
 		WHERE q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 	</select>
-	
+
 	<!-- ②１件取得(編集用) -->
 	<select id="selectById" resultType="Quote">
 		SELECT * FROM quotes WHERE
 		quote_id = #{id}
 	</select>
 
-	<!-- ③ページング付き全件取得（見積待ち） -->
+	<!-- ③ページング付き全件取得（見積待ち/差戻し） -->
 	<select id="selectNeedQuoteWithPage" resultType="Quote">
 		SELECT q.*,
 		p.project_id AS projectId, p.project_name, c.client_name,
@@ -57,7 +59,9 @@
 		comp ON p.company_id = comp.company_id
 		WHERE q.quote_id IS NULL OR
 		q.quote_status = '見積中'
-		ORDER BY p.project_id ASC LIMIT #{offset},
+		OR q.quote_status = '差戻し'
+		ORDER BY p.project_id
+		ASC LIMIT #{offset},
 		#{num}
 	</select>
 
@@ -67,12 +71,14 @@
 		projects p
 		LEFT JOIN quotes q ON p.project_id = q.project_id
 		WHERE
-		q.quote_id IS NULL OR q.quote_status = '見積中'
+		q.quote_id IS NULL OR q.quote_status = '見積中' OR q.quote_status = '差戻し'
+
 	</select>
 
 	<!-- ③ページング付き全件取得（判定待ち） -->
 	<select id="selectPendingJudgmentWithPage" resultType="Quote">
-		SELECT q.*,
+		SELECT
+		q.*,
 		q.deadline_date AS deadlineDate,
 		p.project_name AS projectName,
 		c.client_name AS clientName
@@ -125,7 +131,7 @@
 
 	<!--発注業者用 -->
 
-	<!-- 全件取得（見積待ち） -->
+	<!-- 全件取得（見積待ち/差戻し） -->
 	<select id="selectNeedQuoteQuotesByCompanyId" resultType="Quote">
 		SELECT
 		q.*,
@@ -139,7 +145,8 @@
 		JOIN companies
 		comp ON p.company_id = comp.company_id WHERE p.company_id =
 		#{companyId}
-		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中')
+		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中' OR
+		q.quote_status = '差戻し')
 	</select>
 
 	<!-- 全件取得（判定待ち） -->
@@ -157,33 +164,41 @@
 		ORDER BY q.deadline_date ASC
 	</select>
 
-	<!-- ③ページ分割用データ取得（見積待ち） -->
-	<select id="selectNeedQuoteByCompanyIdWithPage" resultType="Quote">
+	<!-- ③ページ分割用データ取得（見積待ち/差戻し） -->
+	<select id="selectNeedQuoteByCompanyIdWithPage"
+		resultType="Quote">
 		SELECT q.*,
-		p.project_id AS projectId, p.project_name, c.client_name,
+		p.project_id AS projectId, p.project_name,
+		c.client_name,
 		comp.company_name
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id =
+		LEFT JOIN quotes q ON
+		p.project_id =
 		q.project_id
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies
 		comp ON p.company_id = comp.company_id
-		WHERE p.company_id =
+		WHERE p.company_id
+		=
 		#{companyId}
-		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中')
+		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中' OR
+		q.quote_status = '差戻し')
 		ORDER
 		BY p.project_id ASC
 		LIMIT #{offset}, #{num}
 	</select>
 
 	<select id="countNeedQuoteByCompanyId" resultType="long">
-		SELECT COUNT(*)
+		SELECT
+		COUNT(*)
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON p.project_id =
+		q.project_id
 		WHERE
 		p.company_id = #{companyId}
-		AND (q.quote_id IS NULL OR q.quote_status =
-		'見積作成中')
+		AND (q.quote_id IS NULL OR
+		q.quote_status =
+		'見積作成中' OR q.quote_status = '差戻し')
 	</select>
 
 	<!-- ページ分割用データ取得（判定待ち） -->
@@ -212,7 +227,7 @@
 		WHERE p.company_id = #{companyId}
 		AND q.quote_status = '未判定'
 	</select>
-	
+
 	<!--⑧見積り判定用ステータス更新 -->
 	<update id="updateStatus" parameterType="Quote">
 		UPDATE quotes
@@ -250,7 +265,8 @@
 	<!--⑨案件IDに紐づく履歴一覧取得 -->
 	<!--案件詳細→最終更新日 -->
 	<select id="selectHistoriesByProjectId" resultType="Quote">
-		SELECT h.* FROM
+		SELECT h.*
+		FROM
 		quote_histories h
 		JOIN quotes q ON h.quote_id = q.quote_id
 		WHERE
@@ -273,10 +289,11 @@
 	</select>
 
 	<!-- ？？？ -->
-	
+
 	<!--⑪指定した案件IDに紐づく最新の見積を取得 -->
 	<select id="selectQuotesByProjectId" resultType="Quote">
-		SELECT * FROM quotes
+		SELECT * FROM
+		quotes
 		WHERE project_id = #{projectId}
 		ORDER BY quote_id DESC
 	</select>

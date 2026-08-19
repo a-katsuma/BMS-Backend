@@ -5,5 +5,6 @@ import com.example.app.domain.User;
 public interface UserService {
 	
 	User getUserById(Integer id);
+	User getUserByLoginId(String loginId);
 
 }

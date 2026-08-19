@@ -8,5 +8,6 @@ import com.example.app.domain.User;
 public interface UserMapper {
 	
 	User selectById(Integer id);
+	User selectByLoginId(String loginId);
 
 }
