@@ -3,6 +3,10 @@ package com.example.app.controller.contractee;
 import java.util.HashMap;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.User;
-import com.example.app.mapper.UserMapper;
 import com.example.app.service.ClientService;
 import com.example.app.service.ProjectService;
 import com.example.app.util.FormatUtils;
@@ -25,16 +28,19 @@ public class ContracteeClientController {
 	private final ClientService clientService;
 	private final ProjectService projectService;
 	private final FormatUtils fmt;
-	private final UserMapper userMapper; // ホーム画面と同様に UserMapper を注入
 
 	// 発注業者向け顧客一覧（JSON返却）
 	@GetMapping
-	public Map<String, Object> listClients(
+	public ResponseEntity<?> listClients(
 			@RequestParam(required = false, defaultValue = "") String kana,
-			@RequestParam(defaultValue = "1") int page) {
+			@RequestParam(defaultValue = "1") int page,
+			HttpSession session) { // 引数に HttpSession を追加
 
-		// ホーム画面と同様にデータベースからID=2のユーザーを取得
-		User currentUser = userMapper.selectById(2);
+		// セッションからログインユーザーを取得
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (currentUser == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
+		}
 		Integer companyId = currentUser.getCompanyId();
 
 		Map<String, Object> response = new HashMap<>();
@@ -54,13 +60,22 @@ public class ContracteeClientController {
 		response.put("currentPage", page);
 		response.put("currentKana", kana);
 
-		return response;
+		return ResponseEntity.ok(response);
 	}
 
 	// 発注業者向け顧客詳細表示（JSON返却）
 	@GetMapping("/{id}")
-	public Map<String, Object> detailClient(@PathVariable Integer id,
-			@RequestParam(defaultValue = "1") int page) {
+	public ResponseEntity<?> detailClient(@PathVariable Integer id,
+			@RequestParam(defaultValue = "1") int page,
+			HttpSession session) { // セッションを追加
+		
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (currentUser == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
+		}
+
+		// ※もし他社データを防ぐ安全な取得メソッドを用意しているならここでチェック
+		// 例: Client client = clientService.getClientByIdAndCompanyId(id, currentUser.getCompanyId());
 		
 		Map<String, Object> response = new HashMap<>();
 		int limit = 3;
@@ -70,6 +85,6 @@ public class ContracteeClientController {
 		response.put("totalPages", projectService.getTotalPagesByClientId(id, limit));
 		response.put("currentPage", page);
 
-		return response;
+		return ResponseEntity.ok(response);
 	}
 }

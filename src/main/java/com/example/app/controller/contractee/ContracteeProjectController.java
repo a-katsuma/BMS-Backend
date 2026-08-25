@@ -4,6 +4,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,88 +19,106 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.app.domain.Project;
 import com.example.app.domain.Quote;
 import com.example.app.domain.User;
-import com.example.app.mapper.UserMapper;
 import com.example.app.service.ProjectService;
 import com.example.app.service.QuoteService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/contractee/projects") // Reactからの共通プレフィックス（例: /api を付与）に合わせます
+@RequestMapping("/api/contractee/projects")
 @RequiredArgsConstructor
 public class ContracteeProjectController {
 
-    private final ProjectService projectService;
-    private final QuoteService quoteService;
-    private final UserMapper userMapper;
+	private final ProjectService projectService;
+	private final QuoteService quoteService;
 
-    private final int CURRENT_USER_ID = 2;
+	// 一覧表示
+	@GetMapping
+	public ResponseEntity<Map<String, Object>> getList(
+			@RequestParam(defaultValue = "1") int page,
+			HttpSession session) {
 
-    // 一覧表示（JSONを返却）
-    @GetMapping
-    public ResponseEntity<Map<String, Object>> getList(@RequestParam(defaultValue = "1") int page) {
-        User currentUser = userMapper.selectById(CURRENT_USER_ID);
-        Integer companyId = currentUser.getCompanyId();
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (currentUser == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		Integer companyId = currentUser.getCompanyId();
 
-        int limit = 8;
-        List<Project> projects = projectService.getProjectsByCompanyId(companyId, page, limit);
-        int totalPages = projectService.getTotalPagesByCompanyId(companyId, limit);
+		int limit = 8;
+		List<Project> projects = projectService.getProjectsByCompanyId(companyId, page, limit);
+		int totalPages = projectService.getTotalPagesByCompanyId(companyId, limit);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("projects", projects);
-        response.put("totalPages", totalPages);
-        response.put("currentPage", page);
+		Map<String, Object> response = new HashMap<>();
+		response.put("projects", projects);
+		response.put("totalPages", totalPages);
+		response.put("currentPage", page);
 
-        return ResponseEntity.ok(response);
-    }
+		return ResponseEntity.ok(response);
+	}
 
-    // 詳細表示（JSONを返却）
-    @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getDetail(@PathVariable Integer id) {
-        User currentUser = userMapper.selectById(CURRENT_USER_ID);
-        Project project = projectService.getProjectById(id);
+	// 詳細表示
+	@GetMapping("/{id}")
+	public ResponseEntity<Map<String, Object>> getDetail(@PathVariable Integer id, HttpSession session) {
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (currentUser == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 
-        if (project == null || !project.getCompanyId().equals(currentUser.getCompanyId())) {
-            return ResponseEntity.status(403).build(); // 権限がない場合は403などを返却
-        }
+		Project project = projectService.getProjectById(id);
+		if (project == null || !project.getCompanyId().equals(currentUser.getCompanyId())) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+		}
 
-        List<Quote> quotes = quoteService.getQuotesByProjectId(id);
-        Quote latestQuote = (quotes != null && !quotes.isEmpty()) ? quotes.get(0) : null;
-        List<Quote> historyList = quoteService.getHistoriesByProjectId(id);
+		// 1. 案件に関連する最新の見積り情報を取得
+		List<Quote> quotes = quoteService.getQuotesByProjectId(id);
+		Quote latestQuote = null;
+		if (quotes != null && !quotes.isEmpty()) {
+			latestQuote = quotes.get(0); // 先頭を最新の見積りに
+		}
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("project", project);
-        response.put("latestQuote", latestQuote);
-        response.put("historyList", historyList);
+		// 2. quote_histories から専用の履歴リストを取得する
+		List<Quote> historyList = quoteService.getHistoriesByProjectId(id);
 
-        return ResponseEntity.ok(response);
-    }
+		Map<String, Object> response = new HashMap<>();
+		response.put("project", project);
+		response.put("latestQuote", latestQuote);
+		response.put("historyList", historyList);
 
- // 見積判定処理
-    @PostMapping("/{projectId}/quotes/judge/{id}")
-    public ResponseEntity<Map<String, String>> judgeQuote(
-            @PathVariable Integer projectId,
-            @PathVariable Integer id,
-            @RequestBody Map<String, String> requestBody) { // JSONで受け取る
+		return ResponseEntity.ok(response);
+	} // ★ここで getDetail をしっかり閉じる！
 
-        // Mapからstatusを取り出す
-        String status = requestBody.get("status");
+	// 見積り判定処理
+	@PostMapping("/{projectId}/quotes/judge/{id}")
+	public ResponseEntity<?> judgeQuote(
+			@PathVariable Integer projectId,
+			@PathVariable Integer id,
+			@RequestBody Map<String, String> requestBody,
+			HttpSession session) {
 
-        Quote quote = quoteService.getQuoteById(id);
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (currentUser == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 
-        if (quote.getDeadlineDate() != null) {
-            java.time.LocalDate today = java.time.LocalDate.now();
-            if (quote.getDeadlineDate().isBefore(today)) {
-                return ResponseEntity.badRequest().body(Map.of("errorMessage", "判定期限を過ぎているため判定できません。"));
-            }
-        }
+		String status = requestBody.get("status");
+		if (status == null) {
+			return ResponseEntity.badRequest().body("ステータスが指定されていません");
+		}
 
-        User currentUser = userMapper.selectById(CURRENT_USER_ID);
-        quote.setQuoteStatus(status);
-        quote.setJudgeUser(currentUser.getName());
-        quoteService.updateStatus(quote);
-        quoteService.addHistory(quote);
+		// 1. 指定の見積情報を取得
+		Quote quote = quoteService.getQuoteById(id);
+		if (quote == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("見積データが見つかりません");
+		}
 
-        return ResponseEntity.ok(Map.of("successMessage", "見積を「" + status + "」しました。"));
-    }
+		// 2. ステータスや判定者を更新
+		quote.setQuoteStatus(status);
+		quote.setJudgeUser(currentUser.getName());
+		quoteService.updateStatus(quote);
+
+		// ★ 3. 判定履歴（quote_histories）にもデータを追加する
+		quoteService.addHistory(quote);
+
+		return ResponseEntity.ok(Map.of("message", "見積判定を更新しました"));
+	}
 }

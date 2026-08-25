@@ -36,8 +36,9 @@ public class Quote {
 
 	// 見積り期限
 	private LocalDate deadlineDate;
-	private String clientName; // これを追加してください
-	private String projectName; // これも必要になるはずです
-	private String companyName; // これを追加
+	private String clientName; 
+	private String projectName; 
+	private String companyName;
+	private String latestQuoteStatus;
 
 }

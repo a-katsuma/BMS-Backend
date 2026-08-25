@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- -->
+<mapper namespace="com.example.app.mapper.QuoteMapper">
+
+	<!-- 管理者用 -->
+
+	<!-- ①全件取得（見積待ち/差戻し） -->
+	<select id="selectNeedQuoteQuotes" resultType="Quote">
+		SELECT
+		q.*,
+		p.project_id AS projectId,
+		p.project_name,
+		c.client_name,
+		comp.company_name
+		FROM projects p
+		LEFT JOIN quotes q ON p.project_id =
+		q.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies
+		comp ON p.company_id = comp.company_id
+		WHERE q.quote_id IS NULL OR
+		q.quote_status = '見積中'
+		OR q.quote_status = '差戻し'
+		ORDER BY p.project_id
+		ASC
+	</select>
+
+	<!-- ①全件取得（判定待ち） -->
+	<select id="selectPendingJudgmentQuotes" resultType="Quote">
+		SELECT q.*,
+		q.deadline_date AS deadlineDate,
+		p.project_name AS projectName,
+		c.client_name AS clientName,
+		comp.company_name AS companyName
+		FROM quotes q
+		JOIN projects p ON q.project_id = p.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies comp ON p.company_id = comp.company_id
+		WHERE q.quote_status = '未判定'
+		ORDER BY q.deadline_date ASC
+	</select>
+
+	<!-- ②１件取得(編集用) -->
+	<select id="selectById" resultType="Quote">
+		SELECT * FROM quotes WHERE
+		quote_id = #{id}
+	</select>
+
+	<!-- ③ページング付き全件取得（見積待ち/差戻し） -->
+	<select id="selectNeedQuoteWithPage" resultType="Quote">
+		SELECT q.*,
+		p.project_id AS projectId, p.project_name, c.client_name,
+		comp.company_name,
+		(SELECT q_sub.quote_status
+		FROM quotes q_sub
+		WHERE q_sub.project_id = p.project_id
+		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
+		LIMIT 1) AS latest_quote_status
+		FROM projects p
+		LEFT JOIN quotes q ON
+		p.project_id =
+		q.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies
+		comp ON p.company_id = comp.company_id
+		WHERE q.quote_id
+		IS NULL OR
+		q.quote_status = '見積中'
+		OR q.quote_status = '差戻し'
+		ORDER BY
+		p.project_id
+		ASC LIMIT #{offset},
+		#{num}
+	</select>
+
+	<select id="countNeedQuote" resultType="long">
+		SELECT COUNT(*)
+		FROM
+		projects p
+		LEFT JOIN quotes q ON p.project_id = q.project_id
+		WHERE
+		q.quote_id IS NULL OR q.quote_status = '見積中' OR q.quote_status = '差戻し'
+
+	</select>
+
+	<!-- ③ページング付き全件取得（判定待ち） -->
+	<select id="selectPendingJudgmentWithPage" resultType="Quote">
+		SELECT
+		q.*,
+		q.deadline_date AS deadlineDate,
+		p.project_name AS projectName,
+		c.client_name AS clientName,
+		comp.company_name AS companyName
+		FROM quotes q
+		JOIN projects p ON q.project_id = p.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies comp ON p.company_id = comp.company_id
+		WHERE q.quote_status = '未判定'
+		ORDER BY q.deadline_date ASC
+		LIMIT #{offset}, #{num}
+	</select>
+
+	<select id="countPendingJudgment" resultType="long">
+		SELECT COUNT(*)
+		FROM quotes
+		WHERE quote_status = '未判定'
+	</select>
+
+	<!-- ⑤新規登録 -->
+	<insert id="insert" parameterType="Quote"
+		useGeneratedKeys="true" keyProperty="quoteId">
+		INSERT INTO quotes (project_id,
+		quote_date, quote_filepath, quote_status, deadline_date)
+		VALUES
+		(#{projectId}, #{quoteDate}, #{quoteFilepath}, #{quoteStatus},
+		#{deadlineDate})
+	</insert>
+
+	<!-- ⑥編集 -->
+	<update id="update" parameterType="Quote">
+		UPDATE quotes
+		SET project_id =
+		#{projectId},
+		quote_date = #{quoteDate},
+		quote_filepath =
+		#{quoteFilepath},
+		quote_status = #{quoteStatus},
+		deadline_date =
+		#{deadlineDate}
+		WHERE quote_id = #{quoteId}
+	</update>
+
+	<!-- ⑦削除 -->
+	<delete id="delete" parameterType="Integer">
+		DELETE FROM quotes WHERE
+		quote_id = #{id}
+	</delete>
+
+
+	<!--発注業者用 -->
+
+	<!-- 全件取得（見積待ち/差戻し） -->
+	<select id="selectNeedQuoteQuotesByCompanyId" resultType="Quote">
+		SELECT
+		q.*,
+		p.project_id AS projectId,
+		p.project_name,
+		c.client_name,
+		comp.company_name FROM projects p
+		LEFT JOIN quotes q ON p.project_id =
+		q.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies
+		comp ON p.company_id = comp.company_id WHERE p.company_id =
+		#{companyId}
+		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中' OR
+		q.quote_status = '差戻し')
+	</select>
+
+	<!-- 全件取得（判定待ち） -->
+	<select id="selectPendingJudgmentQuotesByCompanyId"
+		resultType="Quote">
+		SELECT q.*, p.project_name, c.client_name
+		FROM quotes q
+		JOIN
+		projects p ON q.project_id = p.project_id
+		JOIN clients c ON p.client_id
+		= c.client_id
+		WHERE p.company_id = #{companyId}
+		AND q.quote_status =
+		'未判定'
+		ORDER BY q.deadline_date ASC
+	</select>
+
+	<!-- ③ページ分割用データ取得（見積待ち/差戻し） -->
+	<select id="selectNeedQuoteByCompanyIdWithPage"
+		resultType="Quote">
+		SELECT q.*,
+		p.project_id AS projectId, p.project_name,
+		c.client_name,
+		comp.company_name,
+		(SELECT q_sub.quote_status
+		FROM quotes q_sub
+		WHERE q_sub.project_id = p.project_id
+		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
+		LIMIT 1) AS latest_quote_status
+		FROM projects p
+		LEFT JOIN quotes q ON
+		p.project_id =
+		q.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies
+		comp ON p.company_id = comp.company_id
+		WHERE p.company_id
+		=
+		#{companyId}
+		AND (q.quote_id IS NULL OR q.quote_status = '見積作成中' OR
+		q.quote_status = '差戻し')
+		ORDER
+		BY p.project_id ASC
+		LIMIT #{offset}, #{num}
+	</select>
+	<select id="countNeedQuoteByCompanyId" resultType="long">
+		SELECT
+		COUNT(*)
+		FROM projects p
+		LEFT JOIN quotes q ON p.project_id =
+		q.project_id
+		WHERE
+		p.company_id = #{companyId}
+		AND (q.quote_id IS NULL OR
+		q.quote_status =
+		'見積作成中' OR q.quote_status = '差戻し')
+	</select>
+
+	<!-- ページ分割用データ取得（判定待ち） -->
+
+	<select id="selectPendingJudgmentByCompanyIdWithPage"
+		resultType="Quote">
+		SELECT q.*, q.deadline_date AS deadlineDate, p.project_name
+		AS projectName,
+		c.client_name AS clientName
+		FROM quotes q
+		JOIN projects p
+		ON q.project_id = p.project_id
+		JOIN clients c ON p.client_id =
+		c.client_id
+		WHERE p.company_id = #{companyId}
+		AND q.quote_status = '未判定'
+		ORDER BY q.deadline_date ASC
+		LIMIT #{offset}, #{num}
+	</select>
+
+	<select id="countPendingJudgmentByCompanyId" resultType="long">
+		SELECT
+		COUNT(*)
+		FROM quotes q
+		JOIN projects p ON q.project_id = p.project_id
+		WHERE p.company_id = #{companyId}
+		AND q.quote_status = '未判定'
+	</select>
+
+	<!--⑧見積り判定用ステータス更新 -->
+	<update id="updateStatus" parameterType="Quote">
+		UPDATE quotes
+		SET
+		quote_status = #{quoteStatus},
+		judge_user = #{judgeUser}
+		WHERE quote_id
+		= #{quoteId}
+	</update>
+
+	<!-- ⑧判定履歴(いつ誰が)の登録 -->
+	<insert id="insertHistory" parameterType="Quote">
+		INSERT INTO
+		quote_histories (quote_id, quote_date,
+		quote_filepath,
+		quote_status,
+		judge_user)
+		VALUES (#{quoteId},
+		#{quoteDate},
+		#{quoteFilepath},
+		#{quoteStatus}, #{judgeUser})
+	</insert>
+
+	<!--履歴・期限管理関連 -->
+
+	<!-- ⑨見積IDに紐づく履歴一覧取得 -->
+	<!--案件詳細→判定履歴 -->
+	<select id="selectHistoriesByQuoteId" resultType="Quote">
+		SELECT * FROM
+		quote_histories WHERE quote_id = #{id} ORDER
+		BY updated_at
+		DESC
+	</select>
+
+	<!--⑨案件IDに紐づく履歴一覧取得 -->
+	<!--案件詳細→最終更新日 -->
+	<select id="selectHistoriesByProjectId" resultType="Quote">
+		SELECT h.*
+		FROM
+		quote_histories h
+		JOIN quotes q ON h.quote_id = q.quote_id
+		WHERE
+		q.project_id = #{projectId}
+		ORDER BY h.updated_at DESC
+	</select>
+
+	<!--⑩見積り期限のチェック -->
+	<select id="selectUrgentUnjudgedQuotes" resultType="Quote">
+		SELECT q.*,
+		p.project_name, c.client_name
+		FROM quotes q
+		JOIN projects p ON
+		q.project_id = p.project_id
+		JOIN clients c ON p.client_id = c.client_id
+		WHERE q.quote_status = '未判定'
+		AND q.deadline_date IS NOT NULL
+		ORDER BY
+		q.deadline_date ASC
+	</select>
+
+	<!-- ？？？ -->
+
+	<!--⑪指定した案件IDに紐づく最新の見積を取得 -->
+	<select id="selectQuotesByProjectId" resultType="Quote">
+		SELECT * FROM
+		quotes
+		WHERE project_id = #{projectId}
+		ORDER BY quote_id DESC
+	</select>
+
+</mapper>

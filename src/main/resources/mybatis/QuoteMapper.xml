@@ -31,11 +31,12 @@
 		SELECT q.*,
 		q.deadline_date AS deadlineDate,
 		p.project_name AS projectName,
-		c.client_name AS clientName
+		c.client_name AS clientName,
+		comp.company_name AS companyName
 		FROM quotes q
-		JOIN projects p ON
-		q.project_id = p.project_id
+		JOIN projects p ON q.project_id = p.project_id
 		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 	</select>
@@ -50,17 +51,25 @@
 	<select id="selectNeedQuoteWithPage" resultType="Quote">
 		SELECT q.*,
 		p.project_id AS projectId, p.project_name, c.client_name,
-		comp.company_name
+		comp.company_name,
+		(SELECT q_sub.quote_status
+		FROM quotes q_sub
+		WHERE q_sub.project_id = p.project_id
+		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
+		LIMIT 1) AS latest_quote_status
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id =
+		LEFT JOIN quotes q ON
+		p.project_id =
 		q.project_id
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies
 		comp ON p.company_id = comp.company_id
-		WHERE q.quote_id IS NULL OR
+		WHERE q.quote_id
+		IS NULL OR
 		q.quote_status = '見積中'
 		OR q.quote_status = '差戻し'
-		ORDER BY p.project_id
+		ORDER BY
+		p.project_id
 		ASC LIMIT #{offset},
 		#{num}
 	</select>
@@ -81,15 +90,15 @@
 		q.*,
 		q.deadline_date AS deadlineDate,
 		p.project_name AS projectName,
-		c.client_name AS clientName
+		c.client_name AS clientName,
+		comp.company_name AS companyName
 		FROM quotes q
-		JOIN projects p ON
-		q.project_id = p.project_id
+		JOIN projects p ON q.project_id = p.project_id
 		JOIN clients c ON p.client_id = c.client_id
+		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
-		LIMIT
-		#{offset}, #{num}
+		LIMIT #{offset}, #{num}
 	</select>
 
 	<select id="countPendingJudgment" resultType="long">
@@ -170,7 +179,12 @@
 		SELECT q.*,
 		p.project_id AS projectId, p.project_name,
 		c.client_name,
-		comp.company_name
+		comp.company_name,
+		(SELECT q_sub.quote_status
+		FROM quotes q_sub
+		WHERE q_sub.project_id = p.project_id
+		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
+		LIMIT 1) AS latest_quote_status
 		FROM projects p
 		LEFT JOIN quotes q ON
 		p.project_id =
@@ -187,7 +201,6 @@
 		BY p.project_id ASC
 		LIMIT #{offset}, #{num}
 	</select>
-
 	<select id="countNeedQuoteByCompanyId" resultType="long">
 		SELECT
 		COUNT(*)

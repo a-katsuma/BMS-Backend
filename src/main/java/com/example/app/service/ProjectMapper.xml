@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- -->
+<mapper namespace="com.example.app.mapper.ProjectMapper">
+
+
+	<!-- 管理者用 -->
+
+	<!-- ①全件取得(他ページ等で利用) -->
+	<select id="selectAll" resultType="Project">
+		SELECT p.*, c.company_name,
+		cl.client_name,
+		(SELECT q.quote_status
+		FROM quotes q
+		WHERE q.project_id =
+		p.project_id
+		ORDER BY q.quote_date DESC, q.quote_id DESC
+		LIMIT 1) AS
+		latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE
+		q.project_id = p.project_id
+		ORDER BY q.quote_date DESC, q.quote_id DESC
+		LIMIT 1) AS deadline_date FROM projects p
+		LEFT JOIN companies c ON
+		p.company_id = c.company_id
+		LEFT JOIN clients cl ON p.client_id =
+		cl.client_id
+		ORDER BY p.updated_at DESC
+	</select>
+
+	<!-- ②１件取得(編集用) -->
+	<select id="selectById" resultType="Project">
+		select p.*, cl.client_name,
+		c.company_name
+		from projects p
+		left join clients cl on p.client_id =
+		cl.client_id
+		left join companies c on p.company_id = c.company_id
+		where
+		p.project_id = #{id}
+	</select>
+
+	<!-- ③ページング付き全件取得 管理者 -->
+	<select id="selectAllWithPage" resultType="Project">
+		SELECT p.*,
+		c.client_name, co.company_name,
+		(SELECT q.quote_status
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC,
+		q.quote_id DESC
+		LIMIT 1) AS latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC,
+		q.quote_id DESC
+		LIMIT 1) AS deadline_date
+		FROM projects p
+		LEFT JOIN
+		clients c ON p.client_id = c.client_id
+		LEFT JOIN companies co ON
+		p.company_id = co.company_id
+		ORDER BY p.updated_at DESC
+		LIMIT #{offset},
+		#{num}
+	</select>
+
+	<select id="countAll" resultType="long">
+		SELECT COUNT(*) FROM projects
+	</select>
+
+	<!-- ⑤新規登録 -->
+	<insert id="insert" parameterType="Project"
+		useGeneratedKeys="true" keyProperty="projectId">
+		insert into projects
+		(company_id, client_id, project_name, contract_type, status,
+		project_remarks,
+		project_staffname)
+		values
+		(#{companyId}, #{clientId},
+		#{projectName}, #{contractType}, #{status},
+		#{projectRemarks},
+		#{projectStaffname})
+	</insert>
+
+	<!-- ⑤新規登録 -->
+
+	<!-- <insert id="insert" parameterType="Project"> -->
+	<!-- insert into projects -->
+	<!-- (company_id, client_id, project_name, contract_type, status, -->
+	<!-- project_remarks, -->
+	<!-- project_staffname) -->
+	<!-- values -->
+	<!-- (#{companyId}, #{clientId}, -->
+	<!-- #{projectName}, #{contractType}, #{status}, -->
+	<!-- #{projectRemarks}, -->
+	<!-- #{projectStaffname}) -->
+	<!-- </insert> -->
+
+	<!-- ⑥編集 -->
+	<update id="update" parameterType="Project">
+		update projects
+		set company_id
+		= #{companyId},
+		client_id = #{clientId},
+		project_name = #{projectName},
+		contract_type = #{contractType},
+		status = #{status},
+		project_remarks =
+		#{projectRemarks},
+		project_staffname = #{projectStaffname}
+		where
+		project_id = #{projectId}
+	</update>
+
+	<!-- ⑦削除 -->
+	<delete id="delete" parameterType="java.lang.Integer">
+		delete from projects
+		where
+		project_id = #{id}
+	</delete>
+
+	<!-- 発注業者用 -->
+
+	<!-- ③ページング付き全件取得 発注業者 -->
+	<select id="selectByCompanyIdWithPage" resultType="Project">
+		SELECT p.*,
+		c.client_name,
+		co.company_name, (SELECT q.quote_status
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC,
+		q.quote_id DESC
+		LIMIT 1) AS
+		latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE
+		q.project_id = p.project_id
+		ORDER BY q.quote_date
+		DESC, q.quote_id DESC
+		LIMIT 1) AS deadline_date
+		FROM projects p
+		LEFT JOIN
+		clients c ON
+		p.client_id = c.client_id
+		LEFT JOIN companies co ON
+		p.company_id =
+		co.company_id WHERE p.company_id = #{companyId}
+		ORDER BY
+		p.updated_at
+		DESC
+		LIMIT #{offset}, #{num}
+	</select>
+
+	<select id="countByCompanyId" resultType="long">
+		SELECT COUNT(*) FROM
+		projects WHERE company_id = #{companyId}
+	</select>
+
+	<!-- 共通？ -->
+
+	<!-- 見積り更新時案件の最終更新日も更新 -->
+	<update id="touch" parameterType="java.lang.Integer">
+		UPDATE projects
+		SET updated_at =
+		CURRENT_TIMESTAMP
+		WHERE project_id = #{projectId}
+	</update>
+
+	<!--①全件取得) -->
+	<!-- 特定の業者(ID)に関連する案件一覧 -->
+	<!-- 管理者用→業者詳細ページ→関連案件 -->
+	<!-- 発注業者用→案件一覧ページ -->
+	<select id="selectByCompanyId" parameterType="java.lang.Integer"
+		resultType="Project">
+		SELECT p.*, c.company_name, cl.client_name,
+		(SELECT
+		q.quote_status
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY
+		q.quote_date DESC, q.quote_id DESC
+		LIMIT 1) AS latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC, q.quote_id DESC
+		LIMIT 1) AS deadline_date
+		FROM projects p
+		LEFT JOIN companies c ON p.company_id = c.company_id
+		LEFT JOIN clients cl ON p.client_id = cl.client_id
+		WHERE p.company_id =
+		#{companyId}
+		ORDER BY p.updated_at DESC
+	</select>
+
+	<!-- ①全件取得 -->
+	<!-- 特定の顧客(ID)に関連する案件一覧 -->
+	<select id="selectByClientId" resultType="Project">
+		SELECT * FROM projects
+		WHERE client_id = #{clientId}
+	</select>
+
+	<!-- ③ページング付き全件取得 -->
+	<!-- 顧客管理詳細ページ 関連案件取得＆ページ分割 -->
+	<select id="selectByClientIdWithPage" resultType="Project">
+		SELECT p.*,
+		c.client_name,
+		co.company_name,
+		(SELECT q.quote_status
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date DESC,
+		q.quote_id DESC
+		LIMIT 1) AS latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		ORDER BY q.quote_date
+		DESC, q.quote_id DESC
+		LIMIT 1) AS deadline_date
+		FROM projects p
+		LEFT JOIN
+		clients c ON p.client_id = c.client_id
+		LEFT JOIN companies co ON
+		p.company_id = co.company_id
+		WHERE p.client_id = #{clientId}
+		ORDER BY
+		p.updated_at DESC
+		LIMIT #{offset}, #{num}
+	</select>
+	<select id="countByClientId" resultType="long">
+		SELECT COUNT(*) FROM
+		projects WHERE client_id = #{clientId}
+	</select>
+
+</mapper>

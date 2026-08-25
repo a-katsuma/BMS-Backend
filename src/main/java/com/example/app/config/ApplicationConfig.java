@@ -25,7 +25,6 @@ public class ApplicationConfig implements WebMvcConfigurer {
 	MessageSource messageSource() {
 		var messageSource = new ResourceBundleMessageSource();
 
-		// ★ここで「validation」というファイルを指名しています！
 		messageSource.setBasename("validation");
 
 		return messageSource;
@@ -33,7 +32,7 @@ public class ApplicationConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		// "/files/**" へのアクセスを、実際のフォルダ "C:/Users/zdis62/uploads/" に紐付ける
+		// "/files/**" へのアクセスを、実際のフォルダ"/uploads/" に紐付ける
 		registry.addResourceHandler("/uploads/**")
 				.addResourceLocations("file:uploads/");
 	}
