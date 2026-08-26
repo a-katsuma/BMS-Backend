@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.validation.Validator;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -30,10 +31,21 @@ public class ApplicationConfig implements WebMvcConfigurer {
 		return messageSource;
 	}
 
+	// アップロードしたファイルへのアクセスを許可する設定
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
 		// "/files/**" へのアクセスを、実際のフォルダ"/uploads/" に紐付ける
 		registry.addResourceHandler("/uploads/**")
 				.addResourceLocations("file:uploads/");
 	}
+	
+	 // React (Vite) からのCORSアクセスを許可する設定
+  @Override
+  public void addCorsMappings(CorsRegistry registry) {
+      registry.addMapping("/api/**")
+          .allowedOrigins("http://localhost:3000")
+          .allowedMethods("GET", "POST", "PUT", "DELETE")
+          .allowedHeaders("*")
+          .allowCredentials(true);
+  }
 }

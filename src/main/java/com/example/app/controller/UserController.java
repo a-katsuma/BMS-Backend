@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpSession;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,18 +21,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserController {
 
+	private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 	private final UserService userService;
 
-	// ログイン処理
+	//ログイン処理
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody User loginRequest, HttpSession session) {
-		// user_id ではなく login_id で検索するように変更
+		// user_id ではなく login_id で検索する
 		User user = userService.getUserByLoginId(loginRequest.getLoginId());
 
-		// ここでパスワードの照合を行います（PasswordEncoderを使うのが一般的です）
-		// 今回はシンプルにパスワードチェック（またはBCryptによるマッチング）
-		if (user != null) {
-			// パスワードチェックの例（PasswordEncoderがある場合: passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())）
+		// ユーザーが存在し、かつ入力されたパスワードがDBのBCryptハッシュと一致するかをチェック
+		if (user != null && passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
 			session.setAttribute("LOGIN_USER", user);
 			return ResponseEntity.ok(user);
 		} else {
