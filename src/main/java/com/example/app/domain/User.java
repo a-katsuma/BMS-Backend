@@ -11,5 +11,8 @@ public class User {
   private String name;
   private Integer companyId;
   private Integer roleFlag;
+  
+  // 会社名(userテーブルからJOIN用)
+  private String companyName;
 
 }
