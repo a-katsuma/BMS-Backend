@@ -16,9 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.app.domain.ExtraWork;
 import com.example.app.domain.Project;
 import com.example.app.domain.Quote;
 import com.example.app.domain.User;
+import com.example.app.service.BillingBaseService;
+import com.example.app.service.ExtraWorkService;
 import com.example.app.service.ProjectService;
 import com.example.app.service.QuoteService;
 
@@ -31,6 +34,8 @@ public class ContracteeProjectController {
 
 	private final ProjectService projectService;
 	private final QuoteService quoteService;
+	private final BillingBaseService billingBaseService;
+	private final ExtraWorkService extraWorkService;
 
 	// 一覧表示
 	@GetMapping
@@ -83,6 +88,14 @@ public class ContracteeProjectController {
 		response.put("project", project);
 		response.put("latestQuote", latestQuote);
 		response.put("historyList", historyList);
+		response.put("billingSummary", billingBaseService.getBillingSummary(id, false)); // 業者向けの項目だけ
+
+		// 3. 例外の案件（緊急・追加作業）：受注済みの作業だけ見せる（下書き・保留は null）
+		if (Project.ORDER_ROUTE_POLICY.equals(project.getOrderRoute())) {
+			ExtraWork work = extraWorkService.getByProjectId(id);
+			response.put("extraWork",
+					(work != null && ExtraWork.STATUS_ORDERED.equals(work.getStatus())) ? work : null);
+		}
 
 		return ResponseEntity.ok(response);
 	} // ★ここで getDetail をしっかり閉じる！
@@ -90,35 +103,43 @@ public class ContracteeProjectController {
 	// 見積り判定処理
 	@PostMapping("/{projectId}/quotes/judge/{id}")
 	public ResponseEntity<?> judgeQuote(
-			@PathVariable Integer projectId,
-			@PathVariable Integer id,
-			@RequestBody Map<String, String> requestBody,
-			HttpSession session) {
+	        @PathVariable Integer projectId,
+	        @PathVariable Integer id,
+	        @RequestBody Map<String, String> requestBody,
+	        HttpSession session) {
 
-		User currentUser = (User) session.getAttribute("LOGIN_USER");
-		if (currentUser == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-		}
+	    User currentUser = (User) session.getAttribute("LOGIN_USER");
+	    if (currentUser == null) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	    }
 
-		String status = requestBody.get("status");
-		if (status == null) {
-			return ResponseEntity.badRequest().body("ステータスが指定されていません");
-		}
+	    String status = requestBody.get("status");
+	    if (status == null) {
+	        return ResponseEntity.badRequest().body(Map.of("errorMessage", "ステータスが指定されていません"));
+	    }
 
-		// 1. 指定の見積情報を取得
-		Quote quote = quoteService.getQuoteById(id);
-		if (quote == null) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("見積データが見つかりません");
-		}
+	    Quote quote = quoteService.getQuoteById(id);
+	    if (quote == null) {
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+	                .body(Map.of("errorMessage", "見積データが見つかりません"));
+	    }
 
-		// 2. ステータスや判定者を更新
-		quote.setQuoteStatus(status);
-		quote.setJudgeUser(currentUser.getName());
-		quoteService.updateStatus(quote);
+	    Project project = projectService.getProjectById(quote.getProjectId());
+	    if (project == null || !project.getCompanyId().equals(currentUser.getCompanyId())) {
+	        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+	                .body(Map.of("errorMessage", "この見積りは判定できません"));
+	    }
 
-		// ★ 3. 判定履歴（quote_histories）にもデータを追加する
-		quoteService.addHistory(quote);
+	    if (!quote.getProjectId().equals(projectId)) {
+	        return ResponseEntity.badRequest().body(Map.of("errorMessage", "案件IDと見積りが一致しません"));
+	    }
 
-		return ResponseEntity.ok(Map.of("message", "見積判定を更新しました"));
+	    quote.setQuoteStatus(status);
+	    quote.setJudgeUser(currentUser.getName());
+	    quote.setJudgeUserId(currentUser.getUserId());
+	    quoteService.updateStatus(quote);
+	    quoteService.addHistory(quote);
+
+	    return ResponseEntity.ok(Map.of("message", "見積判定を更新しました"));
 	}
 }

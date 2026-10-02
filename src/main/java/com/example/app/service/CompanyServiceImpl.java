@@ -1,12 +1,17 @@
 package com.example.app.service;
 
 import java.util.List;
+import java.util.UUID;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.app.domain.Company;
+import com.example.app.domain.User;
+import com.example.app.dto.CompanyRegisterRequest;
 import com.example.app.mapper.CompanyMapper;
+import com.example.app.mapper.UserMapper;
 import com.example.app.util.FormatUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -16,8 +21,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CompanyServiceImpl implements CompanyService {
 
+	private final UserMapper userMapper;
+	private final PasswordEncoder passwordEncoder;
 	private final CompanyMapper companyMapper;
-	private final FormatUtils fmt; // 追加
+	private final FormatUtils fmt; 
+	private final EmailService emailService;
 	private static final int NUM_PER_PAGE = 8;
 
 	private void normalizeCompany(Company company) {
@@ -114,20 +122,62 @@ public class CompanyServiceImpl implements CompanyService {
 	// ⑤新規登録
 	@Override
 	public void addCompany(Company company) {
-		normalizeCompany(company); // 追加
+		normalizeCompany(company);
 		companyMapper.insert(company);
 	}
 
 	// ⑥編集
 	@Override
 	public void editCompany(Company company) {
-		normalizeCompany(company); // 追加
+		normalizeCompany(company);
 		companyMapper.update(company);
 	}
 
 	// ⑦削除
 	@Override
 	public void deleteCompany(Integer id) {
+		if (companyMapper.countAllProjects(id) > 0) {
+			throw new IllegalStateException("案件（削除済みを含む）が登録されているため、削除できません。");
+		}
+		// 1. 先に紐づくユーザーを削除
+		userMapper.deleteByCompanyId(id);
+		// 2. 業者本体を削除
 		companyMapper.delete(id);
+	}
+
+
+	// マスターユーザー追加
+	@Override
+	public Company addCompanyWithMaster(CompanyRegisterRequest req) {
+	    // 1. 業者エンティティ作成と正規化
+	    Company company = new Company();
+	    company.setCompanyName(req.getCompanyName());
+	    company.setCompanyKana(req.getCompanyKana());
+	    company.setCompanyPostalcode(req.getCompanyPostalcode());
+	    company.setCompanyAddress(req.getCompanyAddress());
+	    company.setCompanyPhone(req.getCompanyPhone());
+
+	    normalizeCompany(company);
+	    companyMapper.insert(company); // useGeneratedKeys により companyId が自動セット
+
+	    // 2. 初期パスワード生成 (8桁ランダム英数字)
+	    String rawPassword = UUID.randomUUID().toString().substring(0, 8);
+
+	    // 3. マスターユーザー作成
+	    User master = new User();
+	    master.setLoginId(req.getMasterEmail());
+	    master.setPassword(passwordEncoder.encode(rawPassword));
+	    master.setName(req.getMasterName());
+	    master.setCompanyId(company.getCompanyId());
+	    master.setRoleFlag(2); // 2: 業者マスター
+	    master.setEmail(req.getMasterEmail());
+	    master.setIsActive(1); // 1: 有効
+
+	    userMapper.insert(master);
+	    
+	    emailService.sendMasterUserWelcomeEmail(req.getMasterEmail(), rawPassword);
+
+	    // 4. 生成された companyId を持つオブジェクトを返却
+	    return company;
 	}
 }

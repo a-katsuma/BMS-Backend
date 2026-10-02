@@ -29,10 +29,21 @@ public interface ProjectMapper {
 	// ⑥編集
 	void update(Project project);
 
-	// ⑦削除
-	void delete(Integer id);
+	// 案件状態だけ更新（例外の案件）
+	void updateStatus(@Param("projectId") Integer projectId, @Param("status") String status);
+
+
+	// ⑦削除（論理削除）
+	int delete(Integer id);
 
 	// ----------発注業者用----------
+
+	// ★追加
+	List<Project> selectByClientIdAndCompanyIdWithPage(@Param("clientId") Integer clientId,
+			@Param("companyId") Integer companyId,
+			@Param("offset") int offset, @Param("num") int num);
+
+	long countByClientIdAndCompanyId(@Param("clientId") Integer clientId, @Param("companyId") Integer companyId);
 
 	// ※業者管理詳細ページ 関連案件取得＆ページ分割でも使用？
 	// ③ページング付き全件取得
@@ -58,6 +69,17 @@ public interface ProjectMapper {
 	// 顧客管理詳細ページ 関連案件取得＆ページ分割
 	List<Project> selectByClientIdWithPage(@Param("clientId") Integer clientId, @Param("offset") int offset,
 			@Param("num") int num);
+
 	long countByClientId(@Param("clientId") Integer clientId);
+	
+
+	// 削除済みの案件
+	List<Project> selectDeletedWithPage(@Param("offset") int offset, @Param("num") int num);
+
+	long countDeleted();
+
+	// 復元
+	int restore(Integer id);
+
 
 }

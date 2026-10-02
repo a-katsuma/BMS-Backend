@@ -33,6 +33,8 @@ public class Quote {
 
 	// 見積り判定
 	private String judgeUser;
+	// 見積り判定ユーザーID(FK)
+	private Integer judgeUserId;
 
 	// 見積り期限
 	private LocalDate deadlineDate;

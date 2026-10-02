@@ -41,6 +41,9 @@ public interface ClientService {
 	void deleteClient(Integer id);
 
 	// 発注業者用
+	
+	// ②１件取得
+	Client getClientByIdAndCompanyId(Integer clientId, Integer companyId);
 
 	// ③ページング付き全件取得
 	List<Client> getClientsByCompanyId(Integer companyId, int page);

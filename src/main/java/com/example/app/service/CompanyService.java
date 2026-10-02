@@ -3,6 +3,7 @@ package com.example.app.service;
 import java.util.List;
 
 import com.example.app.domain.Company;
+import com.example.app.dto.CompanyRegisterRequest;
 
 public interface CompanyService {
 
@@ -39,6 +40,9 @@ public interface CompanyService {
 
 	// ⑦削除
 	void deleteCompany(Integer id);
+	
+	// マスターユーザー登録
+	Company addCompanyWithMaster(CompanyRegisterRequest req);
 
 
 }

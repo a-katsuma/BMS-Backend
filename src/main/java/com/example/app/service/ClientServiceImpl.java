@@ -135,10 +135,25 @@ public class ClientServiceImpl implements ClientService {
 	// ⑦削除
 	@Override
 	public void deleteClient(Integer id) {
+		if (clientMapper.countAllProjects(id) > 0) {
+			throw new IllegalStateException("案件（削除済みを含む）が登録されているため、削除できません。");
+		}
 		clientMapper.delete(id);
 	}
 
+
 	// 発注業者用----------
+	
+	// ②１件取得
+	@Override
+	public Client getClientByIdAndCompanyId(Integer clientId, Integer companyId) {
+	    Client c = clientMapper.selectByIdAndCompanyId(clientId, companyId);
+	    if (c != null) {
+	        c.setFormattedClientPostalcode(fmt.postal(c.getClientPostalcode()));
+	        c.setFormattedClientPhone(fmt.format(c.getClientPhone()));
+	    }
+	    return c;
+	}
 
 	// ③ページング付き全件取得
 	@Override

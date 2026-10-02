@@ -35,4 +35,6 @@ public interface CompanyMapper {
 
 	// ⑦削除
 	void delete(int companyId);
+	
+	long countAllProjects(int companyId);
 }

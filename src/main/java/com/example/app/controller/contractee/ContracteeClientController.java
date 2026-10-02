@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.app.domain.Client;
 import com.example.app.domain.User;
 import com.example.app.service.ClientService;
 import com.example.app.service.ProjectService;
@@ -66,25 +67,29 @@ public class ContracteeClientController {
 	// 発注業者向け顧客詳細表示（JSON返却）
 	@GetMapping("/{id}")
 	public ResponseEntity<?> detailClient(@PathVariable Integer id,
-			@RequestParam(defaultValue = "1") int page,
-			HttpSession session) { // セッションを追加
-		
-		User currentUser = (User) session.getAttribute("LOGIN_USER");
-		if (currentUser == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
-		}
+	        @RequestParam(defaultValue = "1") int page,
+	        HttpSession session) {
 
-		// ※もし他社データを防ぐ安全な取得メソッドを用意しているならここでチェック
-		// 例: Client client = clientService.getClientByIdAndCompanyId(id, currentUser.getCompanyId());
-		
-		Map<String, Object> response = new HashMap<>();
-		int limit = 3;
+	    User currentUser = (User) session.getAttribute("LOGIN_USER");
+	    if (currentUser == null) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
+	    }
 
-		response.put("client", clientService.getClientById(id));
-		response.put("projects", projectService.getProjectsByClientId(id, page, limit));
-		response.put("totalPages", projectService.getTotalPagesByClientId(id, limit));
-		response.put("currentPage", page);
+	    Client client = clientService.getClientByIdAndCompanyId(id, currentUser.getCompanyId());
+	    if (client == null) {
+	        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("この顧客情報にはアクセスできません");
+	    }
 
-		return ResponseEntity.ok(response);
+	    Map<String, Object> response = new HashMap<>();
+	    int limit = 3;
+
+	    response.put("client", client);
+	    response.put("projects",
+	            projectService.getProjectsByClientIdAndCompanyId(id, currentUser.getCompanyId(), page, limit));
+	    response.put("totalPages",
+	            projectService.getTotalPagesByClientIdAndCompanyId(id, currentUser.getCompanyId(), limit));
+	    response.put("currentPage", page);
+
+	    return ResponseEntity.ok(response);
 	}
 }

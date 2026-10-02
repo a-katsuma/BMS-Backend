@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.BillingStatementMapper">
+
+	<!-- ①一覧（新しい年月順・税抜小計付き） -->
+	<select id="selectByProjectId" resultType="BillingStatement">
+		SELECT s.*, b.project_id, v.version_no,
+		(SELECT COALESCE(SUM((i.base_quantity - i.excluded_quantity +
+		i.adjustment_quantity) * i.unit_price), 0) FROM
+		billing_statement_items i
+		WHERE i.statement_id = s.statement_id)
+		+
+		(SELECT COALESCE(SUM(o.quantity * o.unit_price), 0)
+		FROM
+		billing_statement_other_items o
+		WHERE o.statement_id = s.statement_id)
+		AS subtotal
+		FROM billing_statements s
+		JOIN billing_bases b ON s.base_id
+		= b.base_id
+		LEFT JOIN billing_base_versions v ON s.version_id =
+		v.version_id
+		WHERE b.project_id = #{projectId}
+		<if test="confirmedOnly">
+			AND s.status = '確定'
+		</if>
+		ORDER BY s.billing_month DESC, s.statement_id DESC
+	</select>
+
+	<select id="selectById" resultType="BillingStatement">
+		SELECT s.*, b.project_id,
+		v.version_no
+		FROM billing_statements s
+		JOIN billing_bases b ON s.base_id
+		= b.base_id
+		LEFT JOIN billing_base_versions v ON s.version_id =
+		v.version_id
+		WHERE s.statement_id = #{statementId}
+	</select>
+
+	<insert id="insert" parameterType="BillingStatement"
+		useGeneratedKeys="true" keyProperty="statementId">
+		INSERT INTO billing_statements
+		(base_id, version_id, billing_month, tax_rate, status, created_by)
+		VALUES
+		(#{baseId}, #{versionId}, #{billingMonth}, #{taxRate},
+		#{status}, #{createdBy})
+	</insert>
+
+	<!-- 確定・確定解除 -->
+	<update id="updateStatus" parameterType="BillingStatement">
+		UPDATE
+		billing_statements
+		SET status = #{status},
+		issued_date = #{issuedDate},
+		confirmed_by = #{confirmedBy},
+		confirmed_at = #{confirmedAt},
+		updated_at = NOW()
+		WHERE statement_id = #{statementId}
+	</update>
+
+	<!-- 下書き保存時に更新日時だけ記録 -->
+	<update id="touch">
+		UPDATE billing_statements
+		SET updated_at = NOW()
+		WHERE
+		statement_id = #{statementId}
+	</update>
+
+	<delete id="delete">
+		DELETE FROM billing_statements
+		WHERE statement_id =
+		#{statementId}
+	</delete>
+
+	<!-- ②明細行 -->
+	<select id="selectItemsByStatementId"
+		resultType="BillingStatementItem">
+		SELECT * FROM billing_statement_items
+		WHERE statement_id =
+		#{statementId}
+		ORDER BY display_order ASC, statement_item_id ASC
+	</select>
+
+	<insert id="insertItem" parameterType="BillingStatementItem"
+		useGeneratedKeys="true" keyProperty="statementItemId">
+		INSERT INTO
+		billing_statement_items
+		(statement_id, building, item_name, unit,
+		base_quantity, excluded_quantity, excluded_reason,
+		adjustment_quantity, adjustment_reason, unit_price, display_order,
+		is_temporary, work_type, work_date, temporary_reason, markup_rate,
+		policy_agreed, extra_work_id)
+		VALUES
+		(#{statementId}, #{building},
+		#{itemName}, #{unit}, #{baseQuantity}, #{excludedQuantity},
+		#{excludedReason},
+		#{adjustmentQuantity}, #{adjustmentReason},
+		#{unitPrice}, #{displayOrder},
+		COALESCE(#{isTemporary}, 0),
+		#{workType}, #{workDate}, #{temporaryReason}, #{markupRate},
+		#{policyAgreed}, #{extraWorkId})
+	</insert>
+
+
+
+	<!-- 調整数・理由の更新（statement_id でも絞り、別の明細の行を書き換えないようにする） -->
+	<update id="updateItemAdjustment"
+		parameterType="BillingStatementItem">
+		UPDATE billing_statement_items
+		SET adjustment_quantity =
+		#{adjustmentQuantity},
+		adjustment_reason = #{adjustmentReason}
+		WHERE
+		statement_item_id = #{statementItemId}
+		AND statement_id =
+		#{statementId}
+	</update>
+
+	<delete id="deleteItemsByStatementId">
+		DELETE FROM billing_statement_items
+		WHERE statement_id
+		= #{statementId}
+	</delete>
+
+
+	<!-- 緊急・追加作業の行だけ削除（保存時に入れ直す） -->
+	<delete id="deleteTemporaryItems">
+		DELETE FROM billing_statement_items
+		WHERE statement_id
+		= #{statementId}
+		AND is_temporary = 1
+	</delete>
+
+
+	<!-- ③その他項目 -->
+	<select id="selectOtherItemsByStatementId"
+		resultType="BillingStatementOtherItem">
+		SELECT * FROM billing_statement_other_items
+		WHERE
+		statement_id = #{statementId}
+		ORDER BY display_order ASC,
+		statement_other_item_id ASC
+	</select>
+
+	<insert id="insertOtherItem"
+		parameterType="BillingStatementOtherItem" useGeneratedKeys="true"
+		keyProperty="statementOtherItemId">
+		INSERT INTO billing_statement_other_items
+		(statement_id,
+		fee_name, quantity, unit_price, is_variable, display_order)
+		VALUES
+		(#{statementId}, #{feeName}, #{quantity}, #{unitPrice}, #{isVariable},
+		#{displayOrder})
+	</insert>
+
+	<!-- 実費の単価・数量の更新 -->
+	<update id="updateOtherItem"
+		parameterType="BillingStatementOtherItem">
+		UPDATE billing_statement_other_items
+		SET quantity =
+		#{quantity},
+		unit_price = #{unitPrice}
+		WHERE statement_other_item_id =
+		#{statementOtherItemId}
+		AND statement_id = #{statementId}
+	</update>
+
+	<delete id="deleteOtherItemsByStatementId">
+		DELETE FROM billing_statement_other_items
+		WHERE
+		statement_id = #{statementId}
+	</delete>
+
+</mapper>

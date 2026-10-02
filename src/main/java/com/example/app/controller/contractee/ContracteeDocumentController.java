@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.app.domain.Client;
 import com.example.app.domain.User;
 import com.example.app.service.ClientService;
 import com.example.app.service.DocumentService;
@@ -29,15 +30,20 @@ public class ContracteeDocumentController {
 	@GetMapping("/{id}/documents")
 	public ResponseEntity<?> listDocuments(@PathVariable("id") Integer clientId, HttpSession session) {
 
-		User currentUser = (User) session.getAttribute("LOGIN_USER");
-		if (currentUser == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
-		}
+	    User currentUser = (User) session.getAttribute("LOGIN_USER");
+	    if (currentUser == null) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未ログインです");
+	    }
 
-		Map<String, Object> response = new HashMap<>();
-		response.put("client", clientService.getClientById(clientId));
-		response.put("documents", documentService.getDocumentsByClientId(clientId));
+	    Client client = clientService.getClientByIdAndCompanyId(clientId, currentUser.getCompanyId());
+	    if (client == null) {
+	        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("この顧客情報にはアクセスできません");
+	    }
 
-		return ResponseEntity.ok(response);
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("client", client);
+	    response.put("documents", documentService.getDocumentsByClientId(clientId));
+
+	    return ResponseEntity.ok(response);
 	}
 }

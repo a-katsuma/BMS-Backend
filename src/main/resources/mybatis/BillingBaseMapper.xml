@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.BillingBaseMapper">
+
+	<!-- ①ベース -->
+	<select id="selectByProjectId" resultType="BillingBase">
+		SELECT * FROM billing_bases
+		WHERE project_id = #{projectId}
+	</select>
+
+	<insert id="insert" parameterType="BillingBase"
+		useGeneratedKeys="true" keyProperty="baseId">
+		INSERT INTO billing_bases (project_id)
+		VALUES (#{projectId})
+	</insert>
+
+	<!-- ②版（新しい順・見積り情報付き） -->
+	<select id="selectVersionsByBaseId" resultType="BillingBaseVersion">
+		SELECT v.*, q.quote_date, q.quote_filepath, q.quote_status
+		FROM billing_base_versions v
+		LEFT JOIN quotes q ON v.quote_id = q.quote_id
+		WHERE v.base_id = #{baseId}
+		ORDER BY v.version_no DESC
+	</select>
+
+	<insert id="insertVersion" parameterType="BillingBaseVersion"
+		useGeneratedKeys="true" keyProperty="versionId">
+		INSERT INTO billing_base_versions (base_id, version_no, quote_id, tax_rate)
+		VALUES (#{baseId}, #{versionNo}, #{quoteId}, #{taxRate})
+	</insert>
+
+	<!-- 訂正時：見積り・税率を更新し、更新日時を記録 -->
+	<update id="updateVersion" parameterType="BillingBaseVersion">
+		UPDATE billing_base_versions
+		SET quote_id = #{quoteId},
+		tax_rate = #{taxRate},
+		updated_at = NOW()
+		WHERE version_id = #{versionId}
+	</update>
+
+	<!-- ③明細 -->
+	<select id="selectItemsByVersionId" resultType="BillingBaseItem">
+		SELECT * FROM billing_base_items
+		WHERE version_id = #{versionId}
+		AND is_active = 1
+		ORDER BY display_order ASC, base_item_id ASC
+	</select>
+
+	<insert id="insertItem" parameterType="BillingBaseItem"
+		useGeneratedKeys="true" keyProperty="baseItemId">
+		INSERT INTO billing_base_items
+		(base_id, version_id, building, item_name, base_quantity, unit, unit_price,
+		excluded_quantity, excluded_reason, display_order)
+		VALUES
+		(#{baseId}, #{versionId}, #{building}, #{itemName}, #{baseQuantity}, #{unit}, #{unitPrice},
+		#{excludedQuantity}, #{excludedReason}, #{displayOrder})
+	</insert>
+
+	<delete id="deleteItemsByVersionId">
+		DELETE FROM billing_base_items
+		WHERE version_id = #{versionId}
+	</delete>
+
+	<!-- ④その他項目 -->
+	<select id="selectOtherItemsByVersionId" resultType="BillingBaseOtherItem">
+		SELECT * FROM billing_base_other_items
+		WHERE version_id = #{versionId}
+		ORDER BY display_order ASC, base_other_item_id ASC
+	</select>
+
+	<insert id="insertOtherItem" parameterType="BillingBaseOtherItem"
+		useGeneratedKeys="true" keyProperty="baseOtherItemId">
+		INSERT INTO billing_base_other_items
+		(base_id, version_id, fee_name, default_unit_price, default_quantity, is_variable, display_order)
+		VALUES
+		(#{baseId}, #{versionId}, #{feeName}, #{defaultUnitPrice}, #{defaultQuantity}, #{isVariable}, #{displayOrder})
+	</insert>
+	
+	
+	<!-- ⑤差分アラートの対象（ベース生成済みの案件と現在の版） -->
+	<select id="selectAlertTargets" resultType="BaseDiffAlert">
+		SELECT b.project_id, p.project_name, cl.client_name, co.company_name,
+		(SELECT v.version_id FROM billing_base_versions v
+		WHERE v.base_id = b.base_id
+		ORDER BY v.version_no DESC
+		LIMIT 1) AS current_version_id
+		FROM billing_bases b
+		JOIN projects p ON b.project_id = p.project_id
+		LEFT JOIN clients cl ON p.client_id = cl.client_id
+		LEFT JOIN companies co ON p.company_id = co.company_id
+		WHERE p.deleted_at IS NULL
+		ORDER BY p.updated_at DESC
+	</select>
+	
+
+	<delete id="deleteOtherItemsByVersionId">
+		DELETE FROM billing_base_other_items
+		WHERE version_id = #{versionId}
+	</delete>
+
+</mapper>

@@ -24,4 +24,57 @@
 		WHERE u.login_id = #{loginId}
 	</select>
 
+	<!-- ★ company_idに紐づくユーザー一覧を取得（業者管理者を上に表示） -->
+	<select id="selectByCompanyId" resultType="User">
+		SELECT * FROM users
+		WHERE company_id = #{companyId}
+		ORDER BY role_flag DESC, user_id ASC
+	</select>
+
+	<!-- ★ ステータス（有効/無効）の更新 -->
+	<update id="updateStatus">
+		UPDATE users
+		SET is_active = #{isActive}
+		WHERE user_id
+		= #{userId}
+	</update>
+
+	<insert id="insert" parameterType="User" useGeneratedKeys="true"
+		keyProperty="userId">
+		INSERT INTO users (
+		login_id, password, name, company_id,
+		role_flag, email, is_active
+		) VALUES (
+		#{loginId}, #{password}, #{name},
+		#{companyId}, #{roleFlag}, #{email},
+		#{isActive}
+		)
+	</insert>
+
+	<!-- company_idに紐づくユーザーを削除 -->
+	<delete id="deleteByCompanyId" parameterType="int">
+		DELETE FROM users
+		WHERE company_id = #{companyId}
+	</delete>
+
+	<!-- ユーザー変更 -->
+	<update id="updatePassword">
+		UPDATE users SET password = #{password} WHERE user_id
+		= #{userId}
+	</update>
+
+	<update id="updateLoginIdAndEmail">
+		UPDATE users SET login_id = #{loginId}, email =
+		#{email} WHERE user_id =
+		#{userId}
+	</update>
+
+	<update id="updateRoleFlag">
+		UPDATE users SET role_flag = #{roleFlag} WHERE
+		user_id = #{userId}
+	</update>
+
+	<update id="updateName">
+		UPDATE users SET name = #{name} WHERE user_id = #{userId}
+	</update>
 </mapper>

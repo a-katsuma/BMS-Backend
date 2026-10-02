@@ -75,5 +75,13 @@
 		where
 		company_id = #{companyId}
 	</delete>
+	
+	
+	<!-- 案件の件数（削除済みを含む。削除できるかの判定用） -->
+	<select id="countAllProjects" resultType="long">
+		SELECT COUNT(*) FROM projects
+		WHERE company_id = #{companyId}
+	</select>
+	
 
 </mapper>

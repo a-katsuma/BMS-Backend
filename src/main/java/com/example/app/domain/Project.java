@@ -15,6 +15,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Project {
+	
+
+	// 受注の経路（見積り：通常の案件／事前承認：緊急・追加作業の例外の案件）
+	public static final String ORDER_ROUTE_QUOTE = "見積り";
+	public static final String ORDER_ROUTE_POLICY = "事前承認";
+
 
 	private Integer projectId;
 
@@ -32,6 +38,8 @@ public class Project {
 
 	@NotBlank(message = "{projectForm.contractType.NotBlank}")
 	private String contractType;
+	private String orderRoute; // 受注の経路（見積り／事前承認）。登録時に null なら「見積り」
+
 
 	@NotBlank(message = "{projectForm.status.NotBlank}")
 	private String status;
@@ -50,5 +58,6 @@ public class Project {
 	private String clientName;
 	private LocalDate deadlineDate;
 	private LocalDateTime updatedAt;
+	private LocalDateTime deletedAt; // 論理削除の日時（NULL＝削除されていない）
 
 }

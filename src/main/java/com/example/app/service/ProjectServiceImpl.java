@@ -60,13 +60,34 @@ public class ProjectServiceImpl implements ProjectService {
 		projectMapper.touch(project.getProjectId());
 	}
 
-	// ⑦削除
+	// ⑦削除（論理削除。現況確認表・ベース・明細・見積りは残す）
 	@Override
 	public void deleteProject(Integer id) {
-		projectMapper.delete(id);
+		if (projectMapper.delete(id) == 0) {
+			throw new IllegalArgumentException("対象の案件が見つかりません。");
+		}
 	}
 
+	// 案件状態だけ更新（例外の案件）
+	@Override
+	public void updateStatus(Integer projectId, String status) {
+		projectMapper.updateStatus(projectId, status);
+	}
+
+
 	// ----------発注業者用----------
+
+	@Override
+	public List<Project> getProjectsByClientIdAndCompanyId(Integer clientId, Integer companyId, int page, int limit) {
+		int offset = (page - 1) * limit;
+		return projectMapper.selectByClientIdAndCompanyIdWithPage(clientId, companyId, offset, limit);
+	}
+
+	@Override
+	public int getTotalPagesByClientIdAndCompanyId(Integer clientId, Integer companyId, int limit) {
+		long count = projectMapper.countByClientIdAndCompanyId(clientId, companyId);
+		return (int) Math.ceil((double) count / limit);
+	}
 
 	// 業者管理詳細ページ関連案件取得＆ページ分割
 	@Override
@@ -84,7 +105,7 @@ public class ProjectServiceImpl implements ProjectService {
 	}
 
 	// ----------共通？----------
-	
+
 	// 業者関連案件
 	@Override
 	public List<Project> selectByCompanyId(Integer companyId) {
@@ -98,8 +119,6 @@ public class ProjectServiceImpl implements ProjectService {
 		return projectMapper.selectByClientId(clientId);
 	}
 
-
-	
 	// 顧客管理詳細ページ関連案件取得＆ページ分割
 	@Override
 	public List<Project> getProjectsByClientId(Integer clientId, int page, int limit) {
@@ -112,6 +131,27 @@ public class ProjectServiceImpl implements ProjectService {
 	public int getTotalPagesByClientId(Integer clientId, int limit) {
 		long count = projectMapper.countByClientId(clientId);
 		return (int) Math.ceil((double) count / limit);
+	}
+	
+
+	// ----------削除済み（管理者用）----------
+
+	@Override
+	public List<Project> getDeletedProjects(int page) {
+		int offset = (page - 1) * NUM_PER_PAGE;
+		return projectMapper.selectDeletedWithPage(offset, NUM_PER_PAGE);
+	}
+
+	@Override
+	public int getTotalPagesDeleted() {
+		return (int) Math.ceil((double) projectMapper.countDeleted() / NUM_PER_PAGE);
+	}
+
+	@Override
+	public void restoreProject(Integer id) {
+		if (projectMapper.restore(id) == 0) {
+			throw new IllegalArgumentException("削除済みの案件が見つかりません。");
+		}
 	}
 
 

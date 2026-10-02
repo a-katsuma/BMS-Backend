@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.SurveyMasterMapper">
+
+	<!-- ①全件取得 -->
+	<select id="selectAll" resultType="SurveyMaster">
+		SELECT * FROM survey_masters
+		ORDER BY master_type, display_order, master_id
+	</select>
+
+	<!-- ②１件取得 -->
+	<select id="selectById" resultType="SurveyMaster">
+		SELECT * FROM survey_masters
+		WHERE master_id = #{masterId}
+	</select>
+
+	<!-- ③重複チェック -->
+	<select id="countByTypeAndName" resultType="int">
+		SELECT COUNT(*) FROM survey_masters
+		WHERE master_type = #{masterType}
+		AND name = #{name}
+		<if test="excludeId != null">
+			AND master_id &lt;&gt; #{excludeId}
+		</if>
+	</select>
+
+	<!-- ④新規登録（表示順は種別内の末尾） -->
+	<insert id="insert" parameterType="SurveyMaster"
+		useGeneratedKeys="true" keyProperty="masterId">
+		INSERT INTO survey_masters
+		(master_type, name, default_unit, display_order)
+		SELECT #{masterType}, #{name}, #{defaultUnit},
+		IFNULL(MAX(display_order), 0) + 1
+		FROM survey_masters
+		WHERE master_type = #{masterType}
+	</insert>
+
+	<!-- ④編集 -->
+	 	<update id="update" parameterType="SurveyMaster">
+ 		UPDATE survey_masters
+		SET name = #{name},
+		default_unit = #{defaultUnit}
+		WHERE master_id = #{masterId}
+ 	</update>
+
+
+	<!-- ④削除 -->
+	<delete id="delete">
+		DELETE FROM survey_masters
+		WHERE master_id = #{masterId}
+	</delete>
+	
+	
+	<!-- ⑤種別ごとの一覧（表示順） -->
+	<select id="selectByType" resultType="SurveyMaster">
+		SELECT * FROM survey_masters
+		WHERE master_type = #{masterType}
+		ORDER BY display_order, master_id
+	</select>
+
+	<!-- ⑥表示順の更新 -->
+	<update id="updateDisplayOrder">
+		UPDATE survey_masters
+		SET display_order = #{displayOrder}
+		WHERE master_id = #{masterId}
+	</update>
+	
+
+</mapper>

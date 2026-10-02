@@ -87,9 +87,14 @@ public class ClientController {
 	// ⑤ 削除 API
 	@DeleteMapping("/{id}")
 	public ResponseEntity<?> deleteClient(@PathVariable Integer id) {
-		clientService.deleteClient(id);
-		return ResponseEntity.ok(Map.of("message", "顧客情報を削除しました。"));
+		try {
+			clientService.deleteClient(id);
+			return ResponseEntity.ok(Map.of("message", "顧客情報を削除しました。"));
+		} catch (IllegalStateException e) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+		}
 	}
+
 
 	// ⑥ 顧客詳細ページ用データ取得 API
 	@GetMapping("/{id}")

@@ -43,10 +43,17 @@ public interface ClientMapper {
 	// ⑦削除
 	void delete(Integer id);
 
+	// 案件の件数（削除済みを含む。削除できるかの判定用）
+	long countAllProjects(Integer id);
+
 	// ----------発注業者用----------
 
 	// 会社IDに関連する①全件取得
 	List<Client> selectByCompanyId(Integer companyId);
+
+	// 会社IDに関連する②１件取得
+	Client selectByIdAndCompanyId(@Param("clientId") Integer clientId,
+			@Param("companyId") Integer companyId);
 
 	// 会社IDに関連する③ページング付き全件取得
 	List<Client> selectByCompanyIdWithPage(@Param("companyId") Integer companyId,

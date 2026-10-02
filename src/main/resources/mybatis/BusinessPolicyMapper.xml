@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.BusinessPolicyMapper">
+
+    <select id="selectCurrentByCompanyId" resultType="BusinessPolicy">
+        SELECT * FROM business_policies
+        WHERE company_id = #{companyId} AND effective_to IS NULL
+        ORDER BY policy_id DESC LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="BusinessPolicy" useGeneratedKeys="true" keyProperty="policyId">
+        INSERT INTO business_policies
+        (company_id, is_agreed, markup_rate, effective_from, set_by, set_reason)
+        VALUES
+        (#{companyId}, #{isAgreed}, #{markupRate}, #{effectiveFrom}, #{setBy}, #{setReason})
+    </insert>
+
+    <update id="closeCurrentPolicy">
+        UPDATE business_policies
+        SET effective_to = NOW()
+        WHERE policy_id = #{policyId}
+    </update>
+    
+    
+    <!-- 指定日の時点で有効だった設定（その日の終わりまでに開始した最新のもの） -->
+    <select id="selectEffectiveOn" resultType="BusinessPolicy">
+        SELECT * FROM business_policies
+        WHERE company_id = #{companyId}
+        AND effective_from &lt; DATE_ADD(#{date}, INTERVAL 1 DAY)
+        ORDER BY effective_from DESC, policy_id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 履歴（古い順） -->
+    <select id="selectHistoryByCompanyId" resultType="BusinessPolicy">
+        SELECT * FROM business_policies
+        WHERE company_id = #{companyId}
+        ORDER BY effective_from ASC, policy_id ASC
+    </select>
+    
+
+</mapper>

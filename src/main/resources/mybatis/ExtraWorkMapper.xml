@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.ExtraWorkMapper">
+
+	<!-- 作業＋当社請求額の合計（税別）＋取り込み先の毎次明細 -->
+	<sql id="workWithSummary">
+		w.*,
+		(SELECT COALESCE(SUM(i.quantity * i.unit_price), 0)
+		FROM extra_work_items i
+		WHERE i.extra_work_id = w.extra_work_id) AS
+		subtotal,
+		(SELECT COALESCE(SUM(ROUND(i.quantity * i.unit_price * (1 + w.markup_rate /
+		100))), 0)
+		FROM extra_work_items i
+		WHERE i.extra_work_id =
+		w.extra_work_id) AS presented_subtotal,
+
+		(SELECT si.statement_id
+		FROM billing_statement_items si
+		WHERE si.extra_work_id
+		= w.extra_work_id
+		ORDER BY si.statement_id LIMIT 1) AS
+		imported_statement_id,
+		(SELECT s.billing_month
+		FROM
+		billing_statement_items si
+		JOIN billing_statements s ON si.statement_id
+		= s.statement_id
+		WHERE si.extra_work_id = w.extra_work_id
+		ORDER BY
+		si.statement_id LIMIT 1) AS imported_billing_month
+	</sql>
+
+	<!-- ①一覧（実施日の新しい順） -->
+	<select id="selectByProjectId" resultType="ExtraWork">
+		SELECT
+		<include refid="workWithSummary" />
+		FROM extra_works w
+		WHERE w.project_id = #{projectId}
+		ORDER BY
+		w.work_date DESC, w.extra_work_id DESC
+	</select>
+
+	<select id="selectById" resultType="ExtraWork">
+		SELECT
+		<include refid="workWithSummary" />
+		FROM extra_works w
+		WHERE w.extra_work_id = #{extraWorkId}
+	</select>
+	
+	
+	<!-- ③全体の一覧（サイドバー）。顧客・業者で絞り込める。openOnly なら済んでいないもの（未請求・未取り込み）だけ -->
+	<select id="search" resultType="ExtraWork">
+		SELECT
+		<include refid="workWithSummary" />,
+		p.project_name, p.client_id, p.company_id,
+		cl.client_name, co.company_name
+		FROM extra_works w
+		JOIN projects p ON w.project_id = p.project_id
+		LEFT JOIN clients cl ON p.client_id = cl.client_id
+		LEFT JOIN companies co ON p.company_id = co.company_id
+		WHERE p.deleted_at IS NULL
+		<if test="clientId != null">
+			AND p.client_id = #{clientId}
+		</if>
+		<if test="companyId != null">
+			AND p.company_id = #{companyId}
+		</if>
+		<if test="openOnly">
+			AND w.billed_date IS NULL
+			AND NOT EXISTS (SELECT 1 FROM billing_statement_items si
+			WHERE si.extra_work_id = w.extra_work_id)
+		</if>
+		ORDER BY w.work_date DESC, w.extra_work_id DESC
+	</select>
+
+	<!-- 請求済みにする／取り消す（取り消しは billedDate = null） -->
+	<update id="updateBilledDate">
+		UPDATE extra_works
+		SET billed_date = #{billedDate},
+		updated_at = NOW()
+		WHERE extra_work_id = #{extraWorkId}
+	</update>
+	
+
+		<insert id="insert" parameterType="ExtraWork"
+		useGeneratedKeys="true" keyProperty="extraWorkId">
+		INSERT INTO extra_works
+		(project_id, work_type, work_date, location, content, requester, markup_rate, tax_rate, status)
+		VALUES
+		(#{projectId}, #{workType}, #{workDate}, #{location}, #{content}, #{requester}, #{markupRate}, #{taxRate}, #{status})
+	</insert>
+
+	<!-- 内容の更新（行だけ変えたときも更新日時を記録する） -->
+	<update id="update" parameterType="ExtraWork">
+		UPDATE extra_works
+		SET work_type = #{workType},
+		work_date = #{workDate},
+		location = #{location},
+		content = #{content},
+		requester = #{requester},
+		markup_rate = #{markupRate},
+		tax_rate = #{taxRate},
+		updated_at = NOW()
+		WHERE extra_work_id = #{extraWorkId}
+		AND project_id = #{projectId}
+	</update>
+
+
+	<!-- 受注・保留・下書きに戻す -->
+	<update id="updateStatus" parameterType="ExtraWork">
+		UPDATE extra_works
+		SET
+		status = #{status},
+		ordered_at = #{orderedAt},
+		ordered_by =
+		#{orderedBy},
+		updated_at = NOW()
+		WHERE extra_work_id = #{extraWorkId}
+	</update>
+
+	<delete id="delete">
+		DELETE FROM extra_works
+		WHERE extra_work_id =
+		#{extraWorkId}
+	</delete>
+
+	<!-- ②作業の行 -->
+	<select id="selectItemsByExtraWorkId" resultType="ExtraWorkItem">
+		SELECT * FROM
+		extra_work_items
+		WHERE extra_work_id = #{extraWorkId}
+		ORDER BY
+		display_order ASC, extra_work_item_id ASC
+	</select>
+
+	<insert id="insertItem" parameterType="ExtraWorkItem"
+		useGeneratedKeys="true" keyProperty="extraWorkItemId">
+		INSERT INTO extra_work_items
+		(extra_work_id, item_name, quantity, unit, unit_price, display_order)
+		VALUES
+		(#{extraWorkId}, #{itemName}, #{quantity}, #{unit},
+		#{unitPrice}, #{displayOrder})
+	</insert>
+
+	<!-- 保存時に行を入れ直す（ほかから参照されないため） -->
+	<delete id="deleteItemsByExtraWorkId">
+		DELETE FROM extra_work_items
+		WHERE extra_work_id =
+		#{extraWorkId}
+	</delete>
+
+</mapper>

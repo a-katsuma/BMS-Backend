@@ -4,8 +4,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.Errors;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.Project;
 import com.example.app.domain.Quote;
+import com.example.app.domain.User;
+import com.example.app.service.BillingBaseService;
 import com.example.app.service.ClientService;
 import com.example.app.service.CompanyService;
 import com.example.app.service.ProjectService;
@@ -35,6 +39,7 @@ public class ProjectController {
 	private final ClientService clientService;
 	private final CompanyService companyService;
 	private final QuoteService quoteService;
+	private final BillingBaseService billingBaseService;
 
 	// ① 一覧表示 (ページング情報とプロジェクトリストをMapでまとめてJSON返却)
 	@GetMapping
@@ -104,14 +109,43 @@ public class ProjectController {
 		return ResponseEntity.ok(response);
 	}
 
-	// ⑥ 削除
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Map<String, String>> deleteProject(@PathVariable Integer id) {
-		projectService.deleteProject(id);
-		Map<String, String> response = new HashMap<>();
-		response.put("message", "案件を削除しました。");
+		try {
+			projectService.deleteProject(id);
+			return ResponseEntity.ok(Map.of("message", "案件を削除しました。"));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+		}
+	}
+
+	// ⑥-2 削除済みの案件一覧（管理者のみ）
+	@GetMapping("/deleted")
+	public ResponseEntity<?> showDeletedList(@RequestParam(defaultValue = "1") int page, HttpSession session) {
+		if (!isAdmin(session)) {
+			return forbidden();
+		}
+		Map<String, Object> response = new HashMap<>();
+		response.put("projects", projectService.getDeletedProjects(page));
+		response.put("totalPages", projectService.getTotalPagesDeleted());
+		response.put("currentPage", page);
 		return ResponseEntity.ok(response);
 	}
+
+	// ⑥-3 復元（管理者のみ）
+	@PostMapping("/{id}/restore")
+	public ResponseEntity<?> restoreProject(@PathVariable Integer id, HttpSession session) {
+		if (!isAdmin(session)) {
+			return forbidden();
+		}
+		try {
+			projectService.restoreProject(id);
+			return ResponseEntity.ok(Map.of("message", "案件を復元しました。"));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+		}
+	}
+
 
 	// ⑦ 詳細表示
 	@GetMapping("/{id}")
@@ -125,7 +159,20 @@ public class ProjectController {
 		response.put("project", project);
 		response.put("latestQuote", latestQuote);
 		response.put("historyList", historyList);
+		response.put("billingSummary", billingBaseService.getBillingSummary(id, true));
 
 		return ResponseEntity.ok(response);
 	}
+	
+
+	private boolean isAdmin(HttpSession session) {
+		User user = (User) session.getAttribute("LOGIN_USER");
+		return user != null && user.getRoleFlag() != null && user.getRoleFlag() == 1;
+	}
+
+	private ResponseEntity<Map<String, String>> forbidden() {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(Map.of("errorMessage", "権限がありません。"));
+	}
+
 }

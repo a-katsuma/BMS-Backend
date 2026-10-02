@@ -3,12 +3,17 @@ package com.example.app.controller;
 import java.util.HashMap;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.app.domain.User;
+import com.example.app.service.BillingBaseService;
 import com.example.app.service.QuoteService;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class HomeController {
 
 	private final QuoteService quoteService;
+	private final BillingBaseService billingBaseService;
 
 	@GetMapping("")
 	public ResponseEntity<Map<String, Object>> showHome(
@@ -42,4 +48,16 @@ public class HomeController {
 
 		return ResponseEntity.ok(response);
 	}
+
+	// 現況確認表とベース明細に差がある案件（管理者のみ）
+	@GetMapping("/base-alerts")
+	public ResponseEntity<?> baseAlerts(HttpSession session) {
+		User user = (User) session.getAttribute("LOGIN_USER");
+		if (user == null || user.getRoleFlag() == null || user.getRoleFlag() != 1) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN)
+					.body(Map.of("errorMessage", "権限がありません。"));
+		}
+		return ResponseEntity.ok(billingBaseService.getSurveyDiffAlerts());
+	}
+
 }

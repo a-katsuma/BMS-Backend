@@ -28,7 +28,15 @@ public interface ProjectService {
 	// ⑦削除
 	void deleteProject(Integer id);
 
+	// 案件状態だけ更新（例外の案件：請求したら完了、取り消したら進行中）
+	void updateStatus(Integer projectId, String status);
+
+
 	// ----------発注業者用----------
+	
+	// ★追加
+	List<Project> getProjectsByClientIdAndCompanyId(Integer clientId, Integer companyId, int page, int limit);
+	int getTotalPagesByClientIdAndCompanyId(Integer clientId, Integer companyId, int limit);
 
 	// ③ページング付き全件取得(業者関連案件)
 	List<Project> getProjectsByCompanyId(Integer companyId, int page, int limit);
@@ -47,4 +55,13 @@ public interface ProjectService {
 	List<Project> getProjectsByClientId(Integer clientId, int page, int limit);
 
 	int getTotalPagesByClientId(Integer clientId, int limit);
+	
+
+	// ----------削除済み（管理者用）----------
+	List<Project> getDeletedProjects(int page);
+
+	int getTotalPagesDeleted();
+
+	void restoreProject(Integer id);
+
 }

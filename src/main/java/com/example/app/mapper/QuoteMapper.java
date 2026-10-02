@@ -41,7 +41,7 @@ public interface QuoteMapper {
 	void delete(Integer id);
 
 	//----------発注業者用----------
-
+	
 	// 全件取得（見積待ち）
 	List<Quote> selectNeedQuoteQuotesByCompanyId(Integer companyId);
 

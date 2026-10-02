@@ -9,7 +9,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.servlet.http.HttpSession;
+
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.app.domain.Quote;
+import com.example.app.domain.User;
 import com.example.app.service.ProjectService;
 import com.example.app.service.QuoteService;
 
@@ -67,10 +71,23 @@ public class QuoteController {
 	public ResponseEntity<?> addQuote(
 			@PathVariable Integer projectId,
 			@RequestParam("quoteStatus") String quoteStatus,
-			@RequestParam("deadlineDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineDate,
-			@RequestParam("file") MultipartFile file) {
+			@RequestParam(value = "deadlineDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deadlineDate,
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(value = "registerAsOrdered", defaultValue = "false") boolean registerAsOrdered,
+			HttpSession session) {
+
+		// 運用中案件の取り込み用：管理者が「発注済み（過去分）」として登録
+		User currentUser = (User) session.getAttribute("LOGIN_USER");
+		if (registerAsOrdered && (currentUser == null || currentUser.getRoleFlag() != 1)) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "権限がありません。"));
+		}
+		if (!registerAsOrdered && deadlineDate == null) {
+			return ResponseEntity.badRequest().body(Map.of("message", "判定期限を入力してください。"));
+		}
+
 		try {
 			String uploadDir = "uploads/";
+
 			Files.createDirectories(Paths.get(uploadDir));
 			String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
 			Path path = Paths.get(uploadDir + fileName);
@@ -80,12 +97,21 @@ public class QuoteController {
 			quote.setProjectId(projectId);
 			quote.setQuoteFilepath(uploadDir + fileName);
 			quote.setQuoteDate(LocalDate.now());
-			quote.setQuoteStatus(quoteStatus);
+			quote.setQuoteStatus(registerAsOrdered ? "発注" : quoteStatus);
 			quote.setDeadlineDate(deadlineDate);
 
 			quoteService.addQuote(quote);
 
+			// 発注済み登録の場合は判定者と履歴を残す
+			if (registerAsOrdered) {
+				quote.setJudgeUser(currentUser.getName() + "（既存案件）");
+				quote.setJudgeUserId(currentUser.getUserId());
+				quoteService.updateStatus(quote);
+				quoteService.addHistory(quote);
+			}
+
 			Map<String, String> response = new HashMap<>();
+
 			response.put("message", "見積情報を登録しました。");
 			return ResponseEntity.ok(response);
 

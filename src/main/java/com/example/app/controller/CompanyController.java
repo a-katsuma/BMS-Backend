@@ -19,9 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.app.domain.Company;
 import com.example.app.domain.Project;
+import com.example.app.domain.User;
+import com.example.app.dto.CompanyRegisterRequest;
 import com.example.app.service.CompanyService;
 import com.example.app.service.ProjectService;
 import com.example.app.service.QuoteService;
+import com.example.app.service.UserService;
 import com.example.app.util.FormatUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +39,7 @@ public class CompanyController {
 	private final ProjectService projectService;
 	private final QuoteService quoteService;
 	private final FormatUtils fmt;
+	private final UserService userService;
 
 	// ① 業者一覧画面を表示 (JSON返却)
 	@GetMapping("")
@@ -74,24 +78,23 @@ public class CompanyController {
 	// ③ 新規登録実行（ReactからのPOST /api/companys および /api/companys/add の両方に対応）
 	@PostMapping(value = { "", "/add" })
 	public ResponseEntity<?> addCompany(
-			@Valid @RequestBody Company company, 
-			Errors errors) {
-		
-		// バリデーションエラーがある場合
-		if (errors.hasErrors()) {
-			return ResponseEntity.badRequest().body("入力内容に誤りがあります。");
-		}
+	        @Valid @RequestBody CompanyRegisterRequest request, 
+	        Errors errors) {
+	    
+	    if (errors.hasErrors()) {
+	        return ResponseEntity.badRequest().body("入力内容に誤りがあります。");
+	    }
 
-		// 登録処理
-		companyService.addCompany(company);
+	    // 1. 登録処理を実行し、IDが割り当てられた Company オブジェクトを受け取る
+	    Company company = companyService.addCompanyWithMaster(request);
 
-		Map<String, Object> response = new HashMap<>();
-		response.put("companyId", company.getCompanyId());
-		response.put("message", "業者情報を登録しました。");
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("message", "業者およびマスターアカウントを登録しました。");
+	    // 2. フロントエンドが遷移に使う companyId をレスポンスに追加する
+	    response.put("companyId", company.getCompanyId());
 
-		return ResponseEntity.ok(response);
+	    return ResponseEntity.ok(response);
 	}
-
 	// ④ 編集フォーム表示
 	@GetMapping("/edit/{id}")
 	public ResponseEntity<Company> showEditForm(@PathVariable Integer id) {
@@ -124,50 +127,56 @@ public class CompanyController {
 	// ⑥ 削除（DELETEメソッド、および従来のGET /delete/{id} の両方に対応）
 	@DeleteMapping("/{id}")
 	public ResponseEntity<?> deleteCompanyApi(@PathVariable Integer id) {
-		companyService.deleteCompany(id);
-		Map<String, Object> response = new HashMap<>();
-		response.put("message", "業者情報を削除しました。");
-		return ResponseEntity.ok(response);
+		try {
+			companyService.deleteCompany(id);
+			return ResponseEntity.ok(Map.of("message", "業者情報を削除しました。"));
+		} catch (IllegalStateException e) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+		}
 	}
 
-	@GetMapping("/delete/{id}")
-	public ResponseEntity<?> deleteCompanyGet(@PathVariable Integer id) {
-		companyService.deleteCompany(id);
-		Map<String, Object> response = new HashMap<>();
-		response.put("message", "業者情報を削除しました。");
-		return ResponseEntity.ok(response);
-	}
+
+	//	@GetMapping("/delete/{id}")
+	//	public ResponseEntity<?> deleteCompanyGet(@PathVariable Integer id) {
+	//		companyService.deleteCompany(id);
+	//		Map<String, Object> response = new HashMap<>();
+	//		response.put("message", "業者情報を削除しました。");
+	//		return ResponseEntity.ok(response);
+	//	}
 
 	// ⑦ 業者詳細ページ
 	@GetMapping("/{id}")
 	public ResponseEntity<Map<String, Object>> showCompanyDetail(
-			@PathVariable Integer id,
-			@RequestParam(defaultValue = "1") int page) {
+	        @PathVariable Integer id,
+	        @RequestParam(defaultValue = "1") int page) {
 
-		int limit = 3; // 業者詳細ページは3件と指定
+	    int limit = 3; // 業者詳細ページは3件と指定
 
-		// 1. 業者情報を取得
-		Company company = companyService.getCompanyById(id);
-		if (company == null) {
-			return ResponseEntity.notFound().build();
-		}
+	    // 1. 業者情報を取得
+	    Company company = companyService.getCompanyById(id);
+	    if (company == null) {
+	        return ResponseEntity.notFound().build();
+	    }
 
-		// 2. 関連案件リストをページング付きで取得
-		List<Project> projects = projectService.getProjectsByCompanyId(id, page, limit);
+	    // 2. 関連案件リストをページング付きで取得
+	    List<Project> projects = projectService.getProjectsByCompanyId(id, page, limit);
 
-		// 3. 総ページ数を計算
-		int totalPages = projectService.getTotalPagesByCompanyId(id, limit);
+	    // 3. 総ページ数を計算
+	    int totalPages = projectService.getTotalPagesByCompanyId(id, limit);
 
-		Map<String, Object> response = new HashMap<>();
-		response.put("company", company);
-		response.put("projects", projects);
-		response.put("totalPages", totalPages);
-		response.put("currentPage", page);
-		
-		// 4. 元のコード通り quoteService を保持・利用できるように含める（必要に応じて利用可能）
-		response.put("hasQuoteService", quoteService != null);
+	    // 4. 業者に所属するユーザー一覧を取得（追加）
+	    List<User> users = userService.getUsersByCompanyId(id);
 
-		return ResponseEntity.ok(response);
+	    Map<String, Object> response = new HashMap<>();
+	    response.put("company", company);
+	    response.put("projects", projects);
+	    response.put("totalPages", totalPages);
+	    response.put("currentPage", page);
+	    response.put("users", users); // ★レスポンスに追加
+	    
+	    response.put("hasQuoteService", quoteService != null);
+
+	    return ResponseEntity.ok(response);
 	}
 
 }

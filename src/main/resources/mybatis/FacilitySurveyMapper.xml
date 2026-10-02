@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.FacilitySurveyMapper">
+
+	<!-- ①案件IDで1件取得 -->
+	<select id="selectByProjectId" resultType="FacilitySurvey">
+		SELECT * FROM
+		facility_surveys
+		WHERE project_id = #{projectId}
+		ORDER BY survey_id DESC
+		LIMIT 1
+	</select>
+
+	<!-- ②明細一覧取得 -->
+	<select id="selectItemsBySurveyId"
+		resultType="FacilitySurveyItem">
+		SELECT * FROM facility_survey_items
+		WHERE survey_id =
+		#{surveyId}
+		ORDER BY display_order ASC, survey_item_id ASC
+	</select>
+
+	<!-- ③新規登録 -->
+	<insert id="insert" parameterType="FacilitySurvey"
+		useGeneratedKeys="true" keyProperty="surveyId">
+		INSERT INTO facility_surveys
+		(project_id)
+		VALUES (#{projectId})
+	</insert>
+
+	<!-- ④更新日時のみ更新 -->
+	<update id="touch">
+		UPDATE facility_surveys
+		SET updated_at = NOW()
+		WHERE
+		survey_id = #{surveyId}
+	</update>
+
+	<!-- ⑤明細の追加 -->
+	<insert id="insertItem" parameterType="FacilitySurveyItem"
+		useGeneratedKeys="true" keyProperty="surveyItemId">
+		INSERT INTO facility_survey_items
+		(survey_id, building, floor_label, item_name, quantity, unit,
+		excluded_quantity, excluded_reason, order_status, display_order)
+		VALUES
+		(#{surveyId}, #{building}, #{floorLabel}, #{itemName},
+		#{quantity}, #{unit},
+		#{excludedQuantity}, #{excludedReason},
+		#{orderStatus}, #{displayOrder})
+	</insert>
+
+	<!-- ⑤明細の更新 -->
+	<update id="updateItem" parameterType="FacilitySurveyItem">
+		UPDATE
+		facility_survey_items
+		SET building = #{building},
+		floor_label =
+		#{floorLabel},
+		item_name = #{itemName},
+		quantity = #{quantity},
+		unit =
+		#{unit},
+		excluded_quantity = #{excludedQuantity},
+		excluded_reason =
+		#{excludedReason},
+		order_status = #{orderStatus},
+		display_order =
+		#{displayOrder}
+		WHERE survey_item_id = #{surveyItemId}
+		AND survey_id =
+		#{surveyId}
+	</update>
+
+	<!-- ⑤明細の削除 -->
+	<delete id="deleteItem">
+		DELETE FROM facility_survey_items
+		WHERE survey_item_id
+		= #{surveyItemId}
+	</delete>
+
+	<!-- ⑥全行を「済」にする（ベース生成時） -->
+	<update id="markAllOrdered">
+		UPDATE facility_survey_items
+		SET order_status = '済'
+		WHERE survey_id = #{surveyId}
+	</update>
+	
+	<!-- ⑦発注状況を1行更新 -->
+	<update id="updateOrderStatus">
+		UPDATE facility_survey_items
+		SET order_status =
+		#{orderStatus}
+		WHERE survey_item_id = #{surveyItemId}
+	</update>
+
+</mapper>
+
