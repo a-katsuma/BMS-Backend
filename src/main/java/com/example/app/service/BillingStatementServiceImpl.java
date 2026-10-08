@@ -62,17 +62,35 @@ public class BillingStatementServiceImpl implements BillingStatementService {
 		return s;
 	}
 
-	// ③作成：ベースの現在の版の値をコピーして持つ
+	// ③作成：指定したベースの現在の版の値をコピーして持つ（使用中のベースが1つだけなら省略可）
 	@Override
-	public Integer create(Integer projectId, String billingMonth, String createdBy) {
+	public Integer create(Integer projectId, Integer baseId, String billingMonth, String createdBy) {
 		if (billingMonth == null || !MONTH_PATTERN.matcher(billingMonth).matches()) {
 			throw new IllegalArgumentException("請求年月を正しく入力してください。");
 		}
-		BillingBase base = billingBaseService.getBaseByProjectId(projectId);
-		if (base == null || base.getCurrentVersion() == null) {
-			throw new IllegalStateException("ベース明細が生成されていないため、毎次明細を作成できません。");
+		if (baseId == null) {
+			List<BillingBase> activeBases = billingBaseService.getBases(projectId, true);
+			if (activeBases.isEmpty()) {
+				throw new IllegalStateException("使用中のベース明細がないため、毎次明細を作成できません。");
+			}
+			if (activeBases.size() > 1) {
+				throw new IllegalArgumentException("コピー元のベースを選択してください。");
+			}
+			baseId = activeBases.get(0).getBaseId();
+		}
+		BillingBase base = billingBaseService.getBase(projectId, baseId);
+		if (base == null) {
+			throw new IllegalArgumentException("指定されたベースはこの案件のものではありません。");
+		}
+		if (base.isStopped()) {
+			throw new IllegalStateException("使用停止中のベースからは毎次明細を作成できません。");
+		}
+		if (base.getCurrentVersion() == null) {
+			throw new IllegalStateException("ベース明細の版がないため、毎次明細を作成できません。");
 		}
 		BillingBaseVersion version = base.getCurrentVersion();
+
+
 
 		BillingStatement statement = new BillingStatement();
 		statement.setBaseId(base.getBaseId());

@@ -9,9 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -89,7 +89,7 @@ public class UserController {
 		return ResponseEntity.ok(response);
 	}
 
-	
+
 	@GetMapping("/me/company/business-policy")
 	public ResponseEntity<?> getMyBusinessPolicy(HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
@@ -106,6 +106,7 @@ public class UserController {
 		return ResponseEntity.ok(businessPolicyService.getCurrentPolicy(currentUser.getCompanyId()));
 	}
 
+	// 事前承認の設定（設定のたびに履歴を1行追加する作りなので POST）
 	@PostMapping("/me/company/business-policy")
 	public ResponseEntity<?> setMyBusinessPolicy(
 			@RequestBody Map<String, Object> body,
@@ -174,9 +175,10 @@ public class UserController {
 		}
 	}
 
-	// ユーザーの有効/無効ステータス切り替えAPI
-	@PatchMapping("/{userId}/status")
-	public ResponseEntity<?> toggleUserStatus(@PathVariable Integer userId, HttpSession session) {
+	// ユーザーの有効/無効の変更API（body：{ isActive: 1 または 0 }。値を指定するので、何度送っても結果は同じ）
+	@PutMapping("/{userId}/status")
+	public ResponseEntity<?> updateUserStatus(@PathVariable Integer userId,
+			@RequestBody Map<String, Integer> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
 		if (currentUser == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("errorMessage", "未ログインです"));
@@ -200,12 +202,21 @@ public class UserController {
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("errorMessage", "一般ユーザーのみ操作できます"));
 		}
 
-		userService.toggleStatus(userId);
-		return ResponseEntity.ok(Map.of("message", "ステータスを変更しました。"));
+		Integer isActive = body.get("isActive");
+		if (isActive == null) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", "有効か無効かを指定してください"));
+		}
+		try {
+			userService.updateStatus(userId, isActive);
+			return ResponseEntity.ok(Map.of("message",
+					isActive == 1 ? "アカウントを有効にしました。" : "アカウントを無効にしました。"));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+		}
 	}
 
 	// 本人がログイン後にパスワード変更
-	@PostMapping("/me/password")
+	@PutMapping("/me/password")
 	public ResponseEntity<?> changeMyPassword(@RequestBody Map<String, String> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
 		if (currentUser == null) {
@@ -221,7 +232,7 @@ public class UserController {
 	}
 
 	// 本人がログイン後にメールアドレス変更
-	@PatchMapping("/me/email")
+	@PutMapping("/me/email")
 	public ResponseEntity<?> updateMyEmail(@RequestBody Map<String, String> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
 		if (currentUser == null) {
@@ -236,7 +247,7 @@ public class UserController {
 	}
 
 	// メールアドレス変更
-	@PatchMapping("/{userId}/email")
+	@PutMapping("/{userId}/email")
 	public ResponseEntity<?> updateEmail(@PathVariable Integer userId,
 			@RequestBody Map<String, String> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
@@ -252,7 +263,7 @@ public class UserController {
 	}
 
 	// ユーザー名変更（本人）
-	@PatchMapping("/me/name")
+	@PutMapping("/me/name")
 	public ResponseEntity<?> updateMyName(@RequestBody Map<String, String> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
 		if (currentUser == null) {
@@ -267,7 +278,7 @@ public class UserController {
 	}
 
 	// 代表ユーザーの交代
-	@PatchMapping("/companys/{companyId}/master/transfer")
+	@PutMapping("/companys/{companyId}/master/transfer")
 	public ResponseEntity<?> transferMaster(@PathVariable Integer companyId,
 			@RequestBody Map<String, Integer> body, HttpSession session) {
 		User currentUser = (User) session.getAttribute("LOGIN_USER");
@@ -324,7 +335,7 @@ public class UserController {
 	}
 
 	// 代表ユーザーによる自社一般ユーザーのメールアドレス変更
-	@PatchMapping("/me/company/users/{userId}/email")
+	@PutMapping("/me/company/users/{userId}/email")
 	public ResponseEntity<?> updateGeneralUserEmail(
 			@PathVariable Integer userId,
 			@RequestBody Map<String, String> body,

@@ -12,8 +12,8 @@ public interface BillingStatementService {
 	// ②1件（明細行・その他項目付き。別の案件の明細なら null）
 	BillingStatement getStatement(Integer projectId, Integer statementId);
 
-	// ③作成（ベースの現在の版をコピー）→ 新しい明細ID
-	Integer create(Integer projectId, String billingMonth, String createdBy);
+	// ③作成（指定したベースの現在の版をコピー。使用中のベースが1つだけなら baseId は省略可）→ 新しい明細ID
+	Integer create(Integer projectId, Integer baseId, String billingMonth, String createdBy);
 
 	// ④下書きの保存（調整数・実費）
 	void save(Integer projectId, Integer statementId, BillingStatement form);

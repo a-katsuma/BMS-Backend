@@ -1,6 +1,7 @@
 package com.example.app.controller;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpSession;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,7 +40,7 @@ public class BillingStatementController {
 	private final BusinessPolicyService businessPolicyService;
 	private final ExtraWorkService extraWorkService;
 
-	// ① 一覧（全件）
+	// ① 一覧（全件）＋作成時に選べるベース（使用中のみ）
 	@GetMapping
 	public ResponseEntity<?> list(@PathVariable Integer projectId, HttpSession session) {
 		if (loginAdmin(session) == null) {
@@ -48,13 +50,12 @@ public class BillingStatementController {
 		if (project == null) {
 			return ResponseEntity.notFound().build();
 		}
-		BillingBase base = billingBaseService.getBaseByProjectId(projectId);
+		List<BillingBase> bases = billingBaseService.getBases(projectId, true);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("project", project);
 		response.put("statements", statementService.getStatements(projectId, false));
-		response.put("currentVersionNo",
-				(base == null || base.getCurrentVersion() == null) ? null : base.getCurrentVersion().getVersionNo());
+		response.put("bases", bases);
 		return ResponseEntity.ok(response);
 	}
 
@@ -82,7 +83,7 @@ public class BillingStatementController {
 		return ResponseEntity.ok(response);
 	}
 
-	// ③ 作成
+	// ③ 作成（baseId は使用中のベースが1つだけなら省略可）
 	@PostMapping("/add")
 	public ResponseEntity<?> create(@PathVariable Integer projectId, @RequestBody BillingStatement form,
 			HttpSession session) {
@@ -91,7 +92,8 @@ public class BillingStatementController {
 			return forbidden();
 		}
 		try {
-			Integer statementId = statementService.create(projectId, form.getBillingMonth(), user.getName());
+			Integer statementId = statementService.create(projectId, form.getBaseId(), form.getBillingMonth(),
+					user.getName());
 			return ResponseEntity.ok(Map.of("message", "毎次明細を作成しました。", "statementId", statementId));
 		} catch (IllegalStateException | IllegalArgumentException e) {
 			return badRequest(e);
@@ -99,7 +101,7 @@ public class BillingStatementController {
 	}
 
 	// ④ 下書き保存
-	@PostMapping("/{statementId}/save")
+	@PutMapping("/{statementId}")
 	public ResponseEntity<?> save(@PathVariable Integer projectId, @PathVariable Integer statementId,
 			@RequestBody BillingStatement form, HttpSession session) {
 		if (loginAdmin(session) == null) {

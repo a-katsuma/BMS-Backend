@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -70,16 +71,16 @@ public class ProjectController {
 			if (errors.hasErrors()) {
 				return ResponseEntity.badRequest().body(errors.getAllErrors());
 			}
-			
+
 			// 登録を実行
 			projectService.addProject(project);
-			
+
 			// もしここで project.getProjectId() が null になってしまう場合は、
 			// Service側でインサート後にIDを採番・取得する仕組みが必要です。
-			
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("message", "案件を登録しました。");
-			response.put("projectId", project.getProjectId()); 
+			response.put("projectId", project.getProjectId());
 
 			return ResponseEntity.ok(response);
 		}
@@ -95,7 +96,7 @@ public class ProjectController {
 	}
 
 	// ⑤ 更新処理
-	@PostMapping("/edit/{id}")
+	@PutMapping("/{id}")
 	public ResponseEntity<?> editProject(@PathVariable Integer id, @Valid @RequestBody Project project, Errors errors) {
 		if (errors.hasErrors()) {
 			return ResponseEntity.badRequest().body(errors.getAllErrors());
@@ -152,18 +153,21 @@ public class ProjectController {
 	public ResponseEntity<Map<String, Object>> showDetail(@PathVariable Integer id) {
 		Project project = projectService.getProjectById(id);
 		List<Quote> quotes = quoteService.getQuotesByProjectId(id);
-		Quote latestQuote = (quotes != null && !quotes.isEmpty()) ? quotes.get(0) : null;
-		List<Quote> historyList = quoteService.getHistoriesByProjectId(id);
+		Quote latestQuote = quotes.isEmpty() ? null : quotes.get(0);
+		List<Quote> historyList = quoteService.getHistoriesByProjectId(id, true); // 削除済みの見積りの履歴も（印付き）
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("project", project);
 		response.put("latestQuote", latestQuote);
+		// 過去の受注：最新以外で、発注になった見積りだけ（新しい順）。差戻し・失注の見積りは判定履歴から見る
+		response.put("pastQuotes", quotes.stream().skip(1).filter(q -> "発注".equals(q.getQuoteStatus())).toList());
+		response.put("deletedQuotes", quoteService.getDeletedQuotes(id));
 		response.put("historyList", historyList);
 		response.put("billingSummary", billingBaseService.getBillingSummary(id, true));
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 
 	private boolean isAdmin(HttpSession session) {
 		User user = (User) session.getAttribute("LOGIN_USER");

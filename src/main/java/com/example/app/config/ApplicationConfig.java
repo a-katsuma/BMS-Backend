@@ -1,5 +1,6 @@
 package com.example.app.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class ApplicationConfig implements WebMvcConfigurer {
+
+	// CORS で許可する画面の URL（application.properties の app.cors.allowed-origins。カンマ区切りで複数指定できる）
+	@Value("${app.cors.allowed-origins}")
+	private String[] corsAllowedOrigins;
 
 	// バリデーションメッセージの仕組みをシステム全体に有効化する設定
 	@Override
@@ -32,20 +37,21 @@ public class ApplicationConfig implements WebMvcConfigurer {
 	}
 
 	// アップロードしたファイルへのアクセスを許可する設定
+	// "/uploads/**" へのアクセスを、実行しているフォルダの中の "uploads/" に紐付ける（Docker では /app/uploads）
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		// "/files/**" へのアクセスを、実際のフォルダ"/uploads/" に紐付ける
 		registry.addResourceHandler("/uploads/**")
 				.addResourceLocations("file:uploads/");
 	}
-	
-	 // React (Vite) からのCORSアクセスを許可する設定
-  @Override
-  public void addCorsMappings(CorsRegistry registry) {
-      registry.addMapping("/api/**")
-          .allowedOrigins("http://localhost:3000")
-          .allowedMethods("GET", "POST", "PUT", "DELETE","PATCH")
-          .allowedHeaders("*")
-          .allowCredentials(true);
-  }
+
+	// 画面（React）からの CORS アクセスを許可する設定
+	// 本番は画面と API を同じドメインで配信するので、CORS は開発環境（localhost:3000 → 8080）でだけ使われる
+	@Override
+	public void addCorsMappings(CorsRegistry registry) {
+		registry.addMapping("/api/**")
+				.allowedOrigins(corsAllowedOrigins)
+				.allowedMethods("GET", "POST", "PUT", "DELETE")
+				.allowedHeaders("*")
+				.allowCredentials(true);
+	}
 }

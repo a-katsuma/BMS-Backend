@@ -26,10 +26,10 @@ public class Quote {
 
 	private List<Quote> historyList;
 
-	private java.time.LocalDateTime updatedAt;
+	private java.time.LocalDateTime deletedAt; // 論理削除日時（null＝有効）
 
 	// 必要に応じて案件情報を保持するためのフィールド（JOIN用）
-	// private Project project; 
+	// private Project project;
 
 	// 見積り判定
 	private String judgeUser;
@@ -38,9 +38,13 @@ public class Quote {
 
 	// 見積り期限
 	private LocalDate deadlineDate;
-	private String clientName; 
-	private String projectName; 
+	private String clientName;
+	private String projectName;
 	private String companyName;
 	private String latestQuoteStatus;
+
+	// 表示用
+	private Boolean quoteDeleted;      // 判定履歴：その見積りが削除済みか
+	private Integer baseVersionCount;  // 削除済みの見積り：ベース明細の版からの参照数（1以上なら完全には削除できない）
 
 }

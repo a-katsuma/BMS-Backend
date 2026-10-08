@@ -5,22 +5,30 @@
 
 	<!-- ※削除済み（deleted_at IS NOT NULL）の案件は、削除済み一覧・復元・削除可否の判定以外では取得しない -->
 
+	<!-- 最新の見積りの状態と判定期限（案件の別名は p）
+	     最新の見積り＝削除していない見積りのうち、最後に登録したもの（QuoteMapper の latestQuoteId と同じ決め方） -->
+	<sql id="latestQuoteColumns">
+		(SELECT q.quote_status
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		AND q.deleted_at IS NULL
+		ORDER BY q.quote_id DESC
+		LIMIT 1) AS latest_quote_status,
+		(SELECT q.deadline_date
+		FROM quotes q
+		WHERE q.project_id = p.project_id
+		AND q.deleted_at IS NULL
+		ORDER BY q.quote_id DESC
+		LIMIT 1) AS deadline_date
+	</sql>
+
 	<!-- 管理者用 -->
 
 	<!-- ①全件取得(他ページ等で利用) -->
 	<select id="selectAll" resultType="Project">
 		SELECT p.*, c.company_name,
 		cl.client_name,
-		(SELECT q.quote_status
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN companies c ON p.company_id = c.company_id
 		LEFT JOIN clients cl ON p.client_id = cl.client_id
@@ -43,16 +51,7 @@
 	<select id="selectAllWithPage" resultType="Project">
 		SELECT p.*,
 		c.client_name, co.company_name,
-		(SELECT q.quote_status
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN clients c ON p.client_id = c.client_id
 		LEFT JOIN companies co ON p.company_id = co.company_id
@@ -113,10 +112,7 @@
 	<select id="selectByClientIdAndCompanyIdWithPage"
 		resultType="Project">
 		SELECT p.*, c.client_name, co.company_name,
-		(SELECT q.quote_status FROM quotes q WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date FROM quotes q WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN clients c ON p.client_id = c.client_id
 		LEFT JOIN companies co ON p.company_id = co.company_id
@@ -136,16 +132,7 @@
 	<select id="selectByCompanyIdWithPage" resultType="Project">
 		SELECT p.*,
 		c.client_name, co.company_name,
-		(SELECT q.quote_status
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN clients c ON p.client_id = c.client_id
 		LEFT JOIN companies co ON p.company_id = co.company_id
@@ -177,16 +164,7 @@
 	<select id="selectByCompanyId" parameterType="java.lang.Integer"
 		resultType="Project">
 		SELECT p.*, c.company_name, cl.client_name,
-		(SELECT q.quote_status
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN companies c ON p.company_id = c.company_id
 		LEFT JOIN clients cl ON p.client_id = cl.client_id
@@ -208,16 +186,7 @@
 	<select id="selectByClientIdWithPage" resultType="Project">
 		SELECT p.*,
 		c.client_name, co.company_name,
-		(SELECT q.quote_status
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS latest_quote_status,
-		(SELECT q.deadline_date
-		FROM quotes q
-		WHERE q.project_id = p.project_id
-		ORDER BY q.quote_date DESC, q.quote_id DESC
-		LIMIT 1) AS deadline_date
+		<include refid="latestQuoteColumns" />
 		FROM projects p
 		LEFT JOIN clients c ON p.client_id = c.client_id
 		LEFT JOIN companies co ON p.company_id = co.company_id

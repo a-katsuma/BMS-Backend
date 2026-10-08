@@ -6,6 +6,16 @@
 	<!-- ※削除済みの案件（p.deleted_at IS NOT NULL）の見積りは出さない -->
 	<!-- ※見積り待ち・差戻しには、見積りを通す案件（order_route = '見積り'）だけを出す。
 	     緊急・追加作業の例外の案件（事前承認）は見積りがないため -->
+	<!-- ※見積り待ち・判定待ち・期限は、案件の「最新の見積り」だけで判定する。
+	     最新の見積り＝削除していない見積り（deleted_at IS NULL）のうち、最後に登録したもの（quote_id が最大） -->
+
+	<!-- 案件の最新の見積りのID（なければ NULL）。projectColumn に案件IDの列を渡す
+	     使い方：<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include> -->
+	<sql id="latestQuoteId">
+		(SELECT MAX(lq.quote_id) FROM quotes lq
+		WHERE lq.project_id = ${projectColumn}
+		AND lq.deleted_at IS NULL)
+	</sql>
 
 	<!-- 管理者用 -->
 
@@ -18,7 +28,8 @@
 		c.client_name,
 		comp.company_name
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.deleted_at IS NULL
@@ -39,11 +50,13 @@
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 	</select>
 
-	<!-- ②１件取得(編集用) -->
+	<!-- ②１件取得(編集用)。削除済みも返す（復元・物理削除で使うため。呼び出し側で deletedAt を確認する） -->
 	<select id="selectById" resultType="Quote">
 		SELECT * FROM quotes WHERE quote_id = #{id}
 	</select>
@@ -53,13 +66,10 @@
 		SELECT q.*,
 		p.project_id AS projectId, p.project_name, c.client_name,
 		comp.company_name,
-		(SELECT q_sub.quote_status
-		FROM quotes q_sub
-		WHERE q_sub.project_id = p.project_id
-		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
-		LIMIT 1) AS latest_quote_status
+		q.quote_status AS latest_quote_status
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.deleted_at IS NULL
@@ -72,7 +82,8 @@
 	<select id="countNeedQuote" resultType="long">
 		SELECT COUNT(*)
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		WHERE p.deleted_at IS NULL
 		AND p.order_route = '見積り'
 		AND (q.quote_id IS NULL OR q.quote_status = '見積中' OR q.quote_status = '差戻し')
@@ -91,6 +102,8 @@
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 		LIMIT #{offset}, #{num}
@@ -101,6 +114,8 @@
 		FROM quotes q
 		JOIN projects p ON q.project_id = p.project_id
 		WHERE p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 	</select>
 
@@ -114,21 +129,66 @@
 		#{deadlineDate})
 	</insert>
 
-	<!-- ⑥編集 -->
-	<update id="update" parameterType="Quote">
+		<!-- ⑥判定期限の変更（未判定・削除していない見積りだけ。状態・ファイル・登録日は変えない） -->
+	<update id="updateDeadline">
 		UPDATE quotes
-		SET project_id = #{projectId},
-		quote_date = #{quoteDate},
-		quote_filepath = #{quoteFilepath},
-		quote_status = #{quoteStatus},
-		deadline_date = #{deadlineDate}
+		SET deadline_date = #{deadlineDate}
 		WHERE quote_id = #{quoteId}
+		AND quote_status = '未判定'
+		AND deleted_at IS NULL
 	</update>
 
-	<!-- ⑦削除 -->
-	<delete id="delete" parameterType="Integer">
-		DELETE FROM quotes WHERE quote_id = #{id}
+
+		<!-- ⑦論理削除（判定履歴は残す） -->
+	<update id="softDelete">
+		UPDATE quotes
+		SET deleted_at = NOW()
+		WHERE quote_id = #{id}
+		AND deleted_at IS NULL
+	</update>
+
+	<!-- ⑦復元 -->
+	<update id="restore">
+		UPDATE quotes
+		SET deleted_at = NULL
+		WHERE quote_id = #{id}
+		AND deleted_at IS NOT NULL
+	</update>
+
+	<!-- ⑦物理削除（論理削除済みだけ。判定履歴は外部キーの ON DELETE CASCADE で一緒に消える） -->
+	<delete id="purge">
+		DELETE FROM quotes
+		WHERE quote_id = #{id}
+		AND deleted_at IS NOT NULL
 	</delete>
+
+	<!-- ⑦削除済みの見積り（新しく削除した順。ベース明細の版からの参照数付き） -->
+	<select id="selectDeletedByProjectId" resultType="Quote">
+		SELECT q.*,
+		(SELECT COUNT(*) FROM billing_base_versions v
+		WHERE v.quote_id = q.quote_id) AS base_version_count
+		FROM quotes q
+		WHERE q.project_id = #{projectId}
+		AND q.deleted_at IS NOT NULL
+		ORDER BY q.deleted_at DESC, q.quote_id DESC
+	</select>
+
+	<!-- ⑦ベース明細の版からの参照数 -->
+	<select id="countBaseVersionsByQuoteId" resultType="int">
+		SELECT COUNT(*) FROM billing_base_versions
+		WHERE quote_id = #{id}
+	</select>
+
+	<!-- ⑦同じファイルを参照している、ほかの見積り・判定履歴の数（0 ならファイルを消してよい） -->
+	<select id="countFileReferences" resultType="int">
+		SELECT
+		(SELECT COUNT(*) FROM quotes
+		WHERE quote_filepath = #{filepath} AND quote_id &lt;&gt; #{quoteId})
+		+
+		(SELECT COUNT(*) FROM quote_histories
+		WHERE quote_filepath = #{filepath} AND quote_id &lt;&gt; #{quoteId})
+	</select>
+
 
 
 	<!--発注業者用 -->
@@ -142,7 +202,8 @@
 		c.client_name,
 		comp.company_name
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.company_id = #{companyId}
@@ -160,6 +221,8 @@
 		JOIN clients c ON p.client_id = c.client_id
 		WHERE p.company_id = #{companyId}
 		AND p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 	</select>
@@ -171,13 +234,10 @@
 		p.project_id AS projectId, p.project_name,
 		c.client_name,
 		comp.company_name,
-		(SELECT q_sub.quote_status
-		FROM quotes q_sub
-		WHERE q_sub.project_id = p.project_id
-		ORDER BY q_sub.quote_date DESC, q_sub.quote_id DESC
-		LIMIT 1) AS latest_quote_status
+		q.quote_status AS latest_quote_status
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		JOIN clients c ON p.client_id = c.client_id
 		JOIN companies comp ON p.company_id = comp.company_id
 		WHERE p.company_id = #{companyId}
@@ -191,7 +251,8 @@
 	<select id="countNeedQuoteByCompanyId" resultType="long">
 		SELECT COUNT(*)
 		FROM projects p
-		LEFT JOIN quotes q ON p.project_id = q.project_id
+		LEFT JOIN quotes q ON q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="p.project_id" /></include>
 		WHERE p.company_id = #{companyId}
 		AND p.deleted_at IS NULL
 		AND p.order_route = '見積り'
@@ -209,6 +270,8 @@
 		JOIN clients c ON p.client_id = c.client_id
 		WHERE p.company_id = #{companyId}
 		AND p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 		ORDER BY q.deadline_date ASC
 		LIMIT #{offset}, #{num}
@@ -220,6 +283,8 @@
 		JOIN projects p ON q.project_id = p.project_id
 		WHERE p.company_id = #{companyId}
 		AND p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 	</select>
 
@@ -249,17 +314,21 @@
 		ORDER BY updated_at DESC
 	</select>
 
-	<!--⑨案件IDに紐づく履歴一覧取得 -->
-	<!--案件詳細→最終更新日 -->
+		<!--⑨案件IDに紐づく履歴一覧取得（includeDeleted=false なら削除済みの見積りの履歴は除く） -->
+	<!--案件詳細→判定履歴 -->
 	<select id="selectHistoriesByProjectId" resultType="Quote">
-		SELECT h.*
+		SELECT h.*,
+		(q.deleted_at IS NOT NULL) AS quote_deleted
 		FROM quote_histories h
 		JOIN quotes q ON h.quote_id = q.quote_id
 		WHERE q.project_id = #{projectId}
+		<if test="!includeDeleted">
+			AND q.deleted_at IS NULL
+		</if>
 		ORDER BY h.updated_at DESC
 	</select>
 
-	<!--⑩見積り期限のチェック -->
+	<!--⑩見積り期限のチェック（最新の見積りが未判定のものだけ） -->
 	<select id="selectUrgentUnjudgedQuotes" resultType="Quote">
 		SELECT q.*,
 		p.project_name, c.client_name
@@ -267,15 +336,18 @@
 		JOIN projects p ON q.project_id = p.project_id
 		JOIN clients c ON p.client_id = c.client_id
 		WHERE p.deleted_at IS NULL
+		AND q.quote_id =
+		<include refid="latestQuoteId"><property name="projectColumn" value="q.project_id" /></include>
 		AND q.quote_status = '未判定'
 		AND q.deadline_date IS NOT NULL
 		ORDER BY q.deadline_date ASC
 	</select>
 
-	<!--⑪指定した案件IDに紐づく最新の見積を取得 -->
+	<!--⑪案件の見積り（削除していないもの。新しい順＝先頭が最新の見積り） -->
 	<select id="selectQuotesByProjectId" resultType="Quote">
 		SELECT * FROM quotes
 		WHERE project_id = #{projectId}
+		AND deleted_at IS NULL
 		ORDER BY quote_id DESC
 	</select>
 

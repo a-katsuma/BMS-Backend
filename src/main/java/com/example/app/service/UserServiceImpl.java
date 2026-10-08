@@ -28,7 +28,7 @@ public class UserServiceImpl implements UserService {
 	private final EmailService emailService;
 	private final UserChangeHistoryMapper userChangeHistoryMapper;
 	private final PasswordResetTokenMapper passwordResetTokenMapper;
-	private final BusinessPolicyService businessPolicyService; 
+	private final BusinessPolicyService businessPolicyService;
 
 	@Value("${app.frontend-base-url}")
 	private String frontendBaseUrl;
@@ -49,15 +49,15 @@ public class UserServiceImpl implements UserService {
 		return userMapper.selectByCompanyId(companyId);
 	}
 
-	// ステータス（1:有効 / 0:無効）を反転させて更新
+		// ステータス（1:有効 / 0:無効）を指定して更新（同じ値を何度送っても結果は同じ）
 	@Override
-	public void toggleStatus(Integer userId) {
-		User user = userMapper.selectById(userId);
-		if (user != null) {
-			int newStatus = (user.getIsActive() == 1) ? 0 : 1;
-			userMapper.updateStatus(userId, newStatus);
+	public void updateStatus(Integer userId, int isActive) {
+		if (isActive != 0 && isActive != 1) {
+			throw new IllegalArgumentException("ステータスの値が正しくありません。");
 		}
+		userMapper.updateStatus(userId, isActive);
 	}
+
 	// ---------- パスワード再設定共通処理 ----------
 
 	private void issuePasswordResetToken(User user) {
@@ -219,7 +219,7 @@ public class UserServiceImpl implements UserService {
 
 		userMapper.updateRoleFlag(currentMaster.getUserId(), 3);
 		userMapper.updateRoleFlag(newMaster.getUserId(), 2);
-		
+
 	    businessPolicyService.resetPolicyOnTransfer(companyId, operatorName);
 
 		emailService.sendRoleTransferNotification(newMaster.getEmail(), currentMaster.getEmail());
@@ -233,7 +233,7 @@ public class UserServiceImpl implements UserService {
 				.changeType("ROLE_TRANSFER").oldValue("一般").newValue("代表")
 				.operatedBy(operatorName).build());
 	}
-	
+
 	// ユーザー名変更（本人）
 	@Override
 	public void updateOwnName(Integer userId, String newName) {
@@ -259,7 +259,7 @@ public class UserServiceImpl implements UserService {
 	            .oldValue(oldName).newValue(newName)
 	            .operatedBy("本人").build());
 	}
-	
+
 	// 一般ユーザー追加
 	@Override
 	public User addGeneralUser(Integer companyId, String name, String email, String operatorName) {

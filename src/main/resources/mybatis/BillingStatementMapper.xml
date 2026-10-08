@@ -4,7 +4,7 @@
 
 	<!-- ①一覧（新しい年月順・税抜小計付き） -->
 	<select id="selectByProjectId" resultType="BillingStatement">
-		SELECT s.*, b.project_id, v.version_no,
+		SELECT s.*, b.project_id, b.base_name, v.version_no,
 		(SELECT COALESCE(SUM((i.base_quantity - i.excluded_quantity +
 		i.adjustment_quantity) * i.unit_price), 0) FROM
 		billing_statement_items i
@@ -28,7 +28,7 @@
 	</select>
 
 	<select id="selectById" resultType="BillingStatement">
-		SELECT s.*, b.project_id,
+		SELECT s.*, b.project_id, b.base_name,
 		v.version_no
 		FROM billing_statements s
 		JOIN billing_bases b ON s.base_id

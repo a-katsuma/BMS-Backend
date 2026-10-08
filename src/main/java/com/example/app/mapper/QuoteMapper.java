@@ -1,5 +1,6 @@
 package com.example.app.mapper;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
@@ -34,14 +35,22 @@ public interface QuoteMapper {
 	// ⑤新規登録
 	void insert(Quote quote);
 
-	// ⑥編集
-	void update(Quote quote);
+	// ⑥判定期限の変更（未判定・削除していない見積りだけ）
+	void updateDeadline(@Param("quoteId") Integer quoteId, @Param("deadlineDate") LocalDate deadlineDate);
+	// ⑦論理削除・復元・物理削除
+	void softDelete(Integer id);
 
-	// ⑦削除
-	void delete(Integer id);
+	void restore(Integer id);
 
+	void purge(Integer id);
+
+	List<Quote> selectDeletedByProjectId(Integer projectId);
+
+	int countBaseVersionsByQuoteId(Integer id);
+
+	int countFileReferences(@Param("quoteId") Integer quoteId, @Param("filepath") String filepath);
 	//----------発注業者用----------
-	
+
 	// 全件取得（見積待ち）
 	List<Quote> selectNeedQuoteQuotesByCompanyId(Integer companyId);
 
@@ -76,7 +85,8 @@ public interface QuoteMapper {
 
 	// ⑨案件IDに紐づく履歴一覧取得
 	// 案件詳細→最終更新日
-	List<Quote> selectHistoriesByProjectId(Integer projectId);
+	List<Quote> selectHistoriesByProjectId(@Param("projectId") Integer projectId,
+			@Param("includeDeleted") boolean includeDeleted);
 
 	// ⑩見積り期限のチェック
 	List<Quote> selectUrgentUnjudgedQuotes();

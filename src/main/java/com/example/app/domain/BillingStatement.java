@@ -34,6 +34,7 @@ public class BillingStatement {
 	// 表示用（JOIN・集計）
 	private Integer projectId;
 	private Integer versionNo;
+	private String baseName;          // コピー元のベース名
 	private BigDecimal subtotal;      // 一覧用：税抜の小計
 
 	private List<BillingStatementItem> items;

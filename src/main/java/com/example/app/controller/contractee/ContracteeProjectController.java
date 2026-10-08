@@ -76,19 +76,19 @@ public class ContracteeProjectController {
 
 		// 1. 案件に関連する最新の見積り情報を取得
 		List<Quote> quotes = quoteService.getQuotesByProjectId(id);
-		Quote latestQuote = null;
-		if (quotes != null && !quotes.isEmpty()) {
-			latestQuote = quotes.get(0); // 先頭を最新の見積りに
-		}
+		Quote latestQuote = quotes.isEmpty() ? null : quotes.get(0); // 先頭が最新の見積り
 
 		// 2. quote_histories から専用の履歴リストを取得する
-		List<Quote> historyList = quoteService.getHistoriesByProjectId(id);
+		List<Quote> historyList = quoteService.getHistoriesByProjectId(id, false); // 業者には削除済みの見積りの履歴を見せない
+
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("project", project);
 		response.put("latestQuote", latestQuote);
+		// 過去の受注：最新以外で、発注になった見積りだけ（新しい順）。差戻し・失注の見積りは判定履歴から見る
+		response.put("pastQuotes", quotes.stream().skip(1).filter(q -> "発注".equals(q.getQuoteStatus())).toList());
 		response.put("historyList", historyList);
-		response.put("billingSummary", billingBaseService.getBillingSummary(id, false)); // 業者向けの項目だけ
+	    response.put("billingSummary", billingBaseService.getBillingSummary(id, false)); // 業者向けの項目だけ
 
 		// 3. 例外の案件（緊急・追加作業）：受注済みの作業だけ見せる（下書き・保留は null）
 		if (Project.ORDER_ROUTE_POLICY.equals(project.getOrderRoute())) {
@@ -133,6 +133,13 @@ public class ContracteeProjectController {
 	    if (!quote.getProjectId().equals(projectId)) {
 	        return ResponseEntity.badRequest().body(Map.of("errorMessage", "案件IDと見積りが一致しません"));
 	    }
+
+	    // 最新・未判定・期限内の見積りだけ判定できる
+	    String blockReason = quoteService.checkJudgeable(projectId, id, status);
+	    if (blockReason != null) {
+	        return ResponseEntity.badRequest().body(Map.of("errorMessage", blockReason));
+	    }
+
 
 	    quote.setQuoteStatus(status);
 	    quote.setJudgeUser(currentUser.getName());

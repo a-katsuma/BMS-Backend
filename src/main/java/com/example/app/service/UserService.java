@@ -12,7 +12,8 @@ public interface UserService {
 
 	List<User> getUsersByCompanyId(Integer companyId);
 
-	void toggleStatus(Integer userId);
+	// ステータス（1:有効 / 0:無効）を指定して更新
+	void updateStatus(Integer userId, int isActive);
 
 	// ユーザー変更
 
@@ -36,10 +37,10 @@ public interface UserService {
 
 	// ③代表ユーザーの交代(操作：管理者)
 	void transferMasterRole(Integer companyId, Integer newMasterUserId, String operatorName);
-	
+
 	// ユーザ名変更(操作：本人)
 	void updateOwnName(Integer userId, String newName);
-	
+
 	// 一般ユーザー追加(操作：代表ユーザー)
 	User addGeneralUser(Integer companyId, String name, String email, String operatorName);
 }

@@ -14,6 +14,5 @@ public class BaseDiffAlert {
 	private String projectName;
 	private String clientName;
 	private String companyName;
-	private Integer currentVersionId;
 	private Integer diffCount;
 }

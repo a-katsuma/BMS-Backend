@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -78,9 +80,9 @@ public class CompanyController {
 	// ③ 新規登録実行（ReactからのPOST /api/companys および /api/companys/add の両方に対応）
 	@PostMapping(value = { "", "/add" })
 	public ResponseEntity<?> addCompany(
-	        @Valid @RequestBody CompanyRegisterRequest request, 
+	        @Valid @RequestBody CompanyRegisterRequest request,
 	        Errors errors) {
-	    
+
 	    if (errors.hasErrors()) {
 	        return ResponseEntity.badRequest().body("入力内容に誤りがあります。");
 	    }
@@ -106,16 +108,16 @@ public class CompanyController {
 	}
 
 	// ⑤ 更新実行
-	@PostMapping("/edit/{id}")
+	@PutMapping("/{id}")
 	public ResponseEntity<?> editCompany(
-			@PathVariable Integer id, 
+			@PathVariable Integer id,
 			@Valid @RequestBody Company company,
 			Errors errors) {
-		
+
 		if (errors.hasErrors()) {
 			return ResponseEntity.badRequest().body("入力内容に誤りがあります。");
 		}
-		
+
 		company.setCompanyId(id); // URLのIDを確実にセット
 		companyService.editCompany(company);
 
@@ -173,7 +175,7 @@ public class CompanyController {
 	    response.put("totalPages", totalPages);
 	    response.put("currentPage", page);
 	    response.put("users", users); // ★レスポンスに追加
-	    
+
 	    response.put("hasQuoteService", quoteService != null);
 
 	    return ResponseEntity.ok(response);

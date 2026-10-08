@@ -2,17 +2,54 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.app.mapper.BillingBaseMapper">
 
-	<!-- ①ベース -->
+	<!-- ①ベース（現在の版の番号・毎次明細の件数付き） -->
+	<sql id="selectBase">
+		SELECT b.*,
+		(SELECT MAX(v.version_no) FROM billing_base_versions v
+		WHERE v.base_id = b.base_id) AS current_version_no,
+		(SELECT COUNT(*) FROM billing_statements s
+		WHERE s.base_id = b.base_id) AS statement_count
+		FROM billing_bases b
+	</sql>
+
 	<select id="selectByProjectId" resultType="BillingBase">
-		SELECT * FROM billing_bases
-		WHERE project_id = #{projectId}
+		<include refid="selectBase" />
+		WHERE b.project_id = #{projectId}
+		ORDER BY b.display_order ASC, b.base_id ASC
+	</select>
+
+	<select id="selectById" resultType="BillingBase">
+		<include refid="selectBase" />
+		WHERE b.base_id = #{baseId}
 	</select>
 
 	<insert id="insert" parameterType="BillingBase"
 		useGeneratedKeys="true" keyProperty="baseId">
-		INSERT INTO billing_bases (project_id)
-		VALUES (#{projectId})
+		INSERT INTO billing_bases (project_id, base_name, display_order)
+		VALUES (#{projectId}, #{baseName}, #{displayOrder})
 	</insert>
+
+	<update id="updateName">
+		UPDATE billing_bases
+		SET base_name = #{baseName}
+		WHERE base_id = #{baseId}
+	</update>
+
+	<!-- 使用停止（stopped=true）／再開 -->
+	<update id="updateStopped">
+		UPDATE billing_bases
+		SET stopped_at =
+		<choose>
+			<when test="stopped">NOW()</when>
+			<otherwise>NULL</otherwise>
+		</choose>
+		WHERE base_id = #{baseId}
+	</update>
+
+	<delete id="delete">
+		DELETE FROM billing_bases
+		WHERE base_id = #{baseId}
+	</delete>
 
 	<!-- ②版（新しい順・見積り情報付き） -->
 	<select id="selectVersionsByBaseId" resultType="BillingBaseVersion">
@@ -38,6 +75,11 @@
 		WHERE version_id = #{versionId}
 	</update>
 
+	<delete id="deleteVersionsByBaseId">
+		DELETE FROM billing_base_versions
+		WHERE base_id = #{baseId}
+	</delete>
+
 	<!-- ③明細 -->
 	<select id="selectItemsByVersionId" resultType="BillingBaseItem">
 		SELECT * FROM billing_base_items
@@ -61,6 +103,11 @@
 		WHERE version_id = #{versionId}
 	</delete>
 
+	<delete id="deleteItemsByBaseId">
+		DELETE FROM billing_base_items
+		WHERE base_id = #{baseId}
+	</delete>
+
 	<!-- ④その他項目 -->
 	<select id="selectOtherItemsByVersionId" resultType="BillingBaseOtherItem">
 		SELECT * FROM billing_base_other_items
@@ -75,27 +122,28 @@
 		VALUES
 		(#{baseId}, #{versionId}, #{feeName}, #{defaultUnitPrice}, #{defaultQuantity}, #{isVariable}, #{displayOrder})
 	</insert>
-	
-	
-	<!-- ⑤差分アラートの対象（ベース生成済みの案件と現在の版） -->
-	<select id="selectAlertTargets" resultType="BaseDiffAlert">
-		SELECT b.project_id, p.project_name, cl.client_name, co.company_name,
-		(SELECT v.version_id FROM billing_base_versions v
-		WHERE v.base_id = b.base_id
-		ORDER BY v.version_no DESC
-		LIMIT 1) AS current_version_id
-		FROM billing_bases b
-		JOIN projects p ON b.project_id = p.project_id
-		LEFT JOIN clients cl ON p.client_id = cl.client_id
-		LEFT JOIN companies co ON p.company_id = co.company_id
-		WHERE p.deleted_at IS NULL
-		ORDER BY p.updated_at DESC
-	</select>
-	
 
 	<delete id="deleteOtherItemsByVersionId">
 		DELETE FROM billing_base_other_items
 		WHERE version_id = #{versionId}
 	</delete>
+
+	<delete id="deleteOtherItemsByBaseId">
+		DELETE FROM billing_base_other_items
+		WHERE base_id = #{baseId}
+	</delete>
+
+	<!-- ⑤差分アラートの対象（使用中のベースがある案件） -->
+	<select id="selectAlertTargets" resultType="BaseDiffAlert">
+		SELECT p.project_id, p.project_name, cl.client_name, co.company_name
+		FROM projects p
+		LEFT JOIN clients cl ON p.client_id = cl.client_id
+		LEFT JOIN companies co ON p.company_id = co.company_id
+		WHERE p.deleted_at IS NULL
+		AND EXISTS (SELECT 1 FROM billing_bases b
+		WHERE b.project_id = p.project_id
+		AND b.stopped_at IS NULL)
+		ORDER BY p.updated_at DESC
+	</select>
 
 </mapper>
