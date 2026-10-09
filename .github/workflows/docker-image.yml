@@ -11,7 +11,7 @@ permissions:
   packages: write # GHCR にイメージを置くため
 
 env:
-  IMAGE: ghcr.io/a-katsuma/bms-frontend # GHCR の名前は小文字だけ
+    IMAGE: ghcr.io/a-katsuma/bms-backend # GHCR の名前は小文字だけ
 
 jobs:
   build:
