@@ -7,20 +7,18 @@ import com.example.app.domain.Project;
 
 public interface EmailService {
 
-	// 新規業者登録時代表ユーザー初期アカウント発行
-	void sendMasterUserWelcomeEmail(String toEmail, String rawPassword);
+	// アカウント発行時の招待：パスワード設定のリンク（業者の代表・一般ユーザー共通。roleLabel は「代表ユーザー」など）
+	void sendInvitationEmail(String toEmail, String roleLabel, String setupUrl, int validHours);
 
 	// ユーザー変更時
 	void sendPasswordResetLinkEmail(String toEmail, String resetUrl);
 	void sendEmailChangedNotification(String oldEmail, String newEmail);
 	void sendRoleTransferNotification(String newMasterEmail, String oldMasterEmail);
 
-	// 一般ユーザー追加
-	void sendGeneralUserWelcomeEmail(String toEmail, String rawPassword);
 
 	//パスワード変更完了通知（現在のアドレス宛）
 	void sendPasswordChangedNotification(String toEmail);
-	
+
 
 	// 緊急・追加作業の受注のお知らせ（業者の代表ユーザー宛）
 	void sendExtraWorkOrderedNotification(String toEmail, Project project, ExtraWork work,

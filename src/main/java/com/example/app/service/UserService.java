@@ -43,4 +43,8 @@ public interface UserService {
 
 	// 一般ユーザー追加(操作：代表ユーザー)
 	User addGeneralUser(Integer companyId, String name, String email, String operatorName);
+
+	// アカウント発行時の招待（パスワード設定のリンクをメールで送る。業者の登録・一般ユーザーの追加で使う）
+	void sendInvitation(User user);
+
 }

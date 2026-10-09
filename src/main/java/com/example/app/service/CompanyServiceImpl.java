@@ -24,8 +24,8 @@ public class CompanyServiceImpl implements CompanyService {
 	private final UserMapper userMapper;
 	private final PasswordEncoder passwordEncoder;
 	private final CompanyMapper companyMapper;
-	private final FormatUtils fmt; 
-	private final EmailService emailService;
+	private final FormatUtils fmt;
+	private final UserService userService; // 代表ユーザーへの招待（パスワード設定のリンク）
 	private static final int NUM_PER_PAGE = 8;
 
 	private void normalizeCompany(Company company) {
@@ -146,38 +146,40 @@ public class CompanyServiceImpl implements CompanyService {
 	}
 
 
-	// マスターユーザー追加
+	// 業者の登録と、代表ユーザーの作成（パスワードは、招待のリンクから本人が決める）
 	@Override
 	public Company addCompanyWithMaster(CompanyRegisterRequest req) {
-	    // 1. 業者エンティティ作成と正規化
-	    Company company = new Company();
-	    company.setCompanyName(req.getCompanyName());
-	    company.setCompanyKana(req.getCompanyKana());
-	    company.setCompanyPostalcode(req.getCompanyPostalcode());
-	    company.setCompanyAddress(req.getCompanyAddress());
-	    company.setCompanyPhone(req.getCompanyPhone());
+		// 0. 代表のメールアドレス（＝ログインID）が、ほかのユーザーと重ならないか（一般ユーザーの追加と同じ確認）
+		if (userMapper.selectByLoginId(req.getMasterEmail()) != null) {
+			throw new IllegalStateException("そのメールアドレスは既に使用されています");
+		}
+		// 1. 業者エンティティ作成と正規化
+		Company company = new Company();
+		company.setCompanyName(req.getCompanyName());
+		company.setCompanyKana(req.getCompanyKana());
+		company.setCompanyPostalcode(req.getCompanyPostalcode());
+		company.setCompanyAddress(req.getCompanyAddress());
+		company.setCompanyPhone(req.getCompanyPhone());
 
-	    normalizeCompany(company);
-	    companyMapper.insert(company); // useGeneratedKeys により companyId が自動セット
+		normalizeCompany(company);
+		companyMapper.insert(company); // useGeneratedKeys により companyId が自動セット
 
-	    // 2. 初期パスワード生成 (8桁ランダム英数字)
-	    String rawPassword = UUID.randomUUID().toString().substring(0, 8);
+		// 2. 代表ユーザー作成（本人がリンクから設定するまでは、誰も知らないランダムなパスワードにしておく）
+		User master = new User();
+		master.setLoginId(req.getMasterEmail());
+		master.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+		master.setName(req.getMasterName());
+		master.setCompanyId(company.getCompanyId());
+		master.setRoleFlag(2); // 2: 業者マスター
+		master.setEmail(req.getMasterEmail());
+		master.setIsActive(1); // 1: 有効
 
-	    // 3. マスターユーザー作成
-	    User master = new User();
-	    master.setLoginId(req.getMasterEmail());
-	    master.setPassword(passwordEncoder.encode(rawPassword));
-	    master.setName(req.getMasterName());
-	    master.setCompanyId(company.getCompanyId());
-	    master.setRoleFlag(2); // 2: 業者マスター
-	    master.setEmail(req.getMasterEmail());
-	    master.setIsActive(1); // 1: 有効
+		userMapper.insert(master);
 
-	    userMapper.insert(master);
-	    
-	    emailService.sendMasterUserWelcomeEmail(req.getMasterEmail(), rawPassword);
+		// 3. 招待（パスワード設定のリンク）をメールで送る
+		userService.sendInvitation(master);
 
-	    // 4. 生成された companyId を持つオブジェクトを返却
-	    return company;
+		// 4. 生成された companyId を持つオブジェクトを返却
+		return company;
 	}
 }

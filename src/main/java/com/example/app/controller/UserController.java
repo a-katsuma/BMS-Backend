@@ -30,6 +30,8 @@ public class UserController {
 	private final PasswordEncoder passwordEncoder;
 	private final UserService userService;
 	private final BusinessPolicyService businessPolicyService;
+	private final com.example.app.config.DemoAccounts demoAccounts;
+
 
 	private static final java.util.regex.Pattern EMAIL_PATTERN = java.util.regex.Pattern
 			.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -206,6 +208,13 @@ public class UserController {
 		if (isActive == null) {
 			return ResponseEntity.badRequest().body(Map.of("errorMessage", "有効か無効かを指定してください"));
 		}
+
+		// デモ用ログインで使うアカウントは無効にできない（無効にすると、ほかの人がデモで入れなくなるため）
+		if (isActive == 0 && demoAccounts.isDemoAccount(target)) {
+			return ResponseEntity.badRequest().body(Map.of("errorMessage",
+					"デモ用のアカウントは無効にできません。予備のユーザーで試してください。"));
+		}
+
 		try {
 			userService.updateStatus(userId, isActive);
 			return ResponseEntity.ok(Map.of("message",

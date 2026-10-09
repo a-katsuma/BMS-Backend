@@ -87,15 +87,21 @@ public class CompanyController {
 	        return ResponseEntity.badRequest().body("入力内容に誤りがあります。");
 	    }
 
-	    // 1. 登録処理を実行し、IDが割り当てられた Company オブジェクトを受け取る
-	    Company company = companyService.addCompanyWithMaster(request);
+	    	    try {
+	        // 1. 登録処理を実行し、IDが割り当てられた Company オブジェクトを受け取る
+	        Company company = companyService.addCompanyWithMaster(request);
 
-	    Map<String, Object> response = new HashMap<>();
-	    response.put("message", "業者およびマスターアカウントを登録しました。");
-	    // 2. フロントエンドが遷移に使う companyId をレスポンスに追加する
-	    response.put("companyId", company.getCompanyId());
+	        Map<String, Object> response = new HashMap<>();
+	        response.put("message", "業者およびマスターアカウントを登録しました。");
+	        // 2. フロントエンドが遷移に使う companyId をレスポンスに追加する
+	        response.put("companyId", company.getCompanyId());
 
-	    return ResponseEntity.ok(response);
+	        return ResponseEntity.ok(response);
+	    } catch (IllegalStateException e) {
+	        // 代表のメールアドレスの重複など
+	        return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
+	    }
+
 	}
 	// ④ 編集フォーム表示
 	@GetMapping("/edit/{id}")

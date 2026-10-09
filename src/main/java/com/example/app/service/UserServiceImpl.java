@@ -23,6 +23,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
+	// パスワード設定のリンクの有効期限（時間）
+	private static final int RESET_VALID_HOURS = 1;       // パスワード再設定
+	private static final int INVITATION_VALID_HOURS = 72; // アカウント発行時の招待（すぐにメールを見るとは限らないため長め）
+
 	private final UserMapper userMapper;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailService emailService;
@@ -49,7 +53,7 @@ public class UserServiceImpl implements UserService {
 		return userMapper.selectByCompanyId(companyId);
 	}
 
-		// ステータス（1:有効 / 0:無効）を指定して更新（同じ値を何度送っても結果は同じ）
+	// ステータス（1:有効 / 0:無効）を指定して更新（同じ値を何度送っても結果は同じ）
 	@Override
 	public void updateStatus(Integer userId, int isActive) {
 		if (isActive != 0 && isActive != 1) {
@@ -58,20 +62,36 @@ public class UserServiceImpl implements UserService {
 		userMapper.updateStatus(userId, isActive);
 	}
 
-	// ---------- パスワード再設定共通処理 ----------
+	// ---------- パスワード設定のリンク（再設定・招待で共通） ----------
 
-	private void issuePasswordResetToken(User user) {
+	// トークンを発行して、パスワード設定の画面の URL を返す（前に発行したトークンは無効にする）
+	private String issueToken(User user, int validHours) {
 		passwordResetTokenMapper.invalidateAllForUser(user.getUserId());
 
 		String token = UUID.randomUUID().toString().replace("-", "");
 		passwordResetTokenMapper.insert(PasswordResetToken.builder()
 				.userId(user.getUserId())
 				.token(token)
-				.expiresAt(LocalDateTime.now().plusHours(1)) // ★1時間
+				.expiresAt(LocalDateTime.now().plusHours(validHours))
 				.build());
 
-		String resetUrl = frontendBaseUrl + "/reset-password?token=" + token;
+		return frontendBaseUrl + "/reset-password?token=" + token;
+	}
+
+	// パスワード再設定のリンクを送る（有効期限 1時間）
+	private void issuePasswordResetToken(User user) {
+		String resetUrl = issueToken(user, RESET_VALID_HOURS);
 		emailService.sendPasswordResetLinkEmail(user.getEmail(), resetUrl);
+	}
+
+	// アカウント発行時の招待：パスワード設定のリンクを送る（有効期限 72時間）
+	@Override
+	public void sendInvitation(User user) {
+		String setupUrl = issueToken(user, INVITATION_VALID_HOURS);
+		String roleLabel = Integer.valueOf(2).equals(user.getRoleFlag()) ? "代表ユーザー"
+				: Integer.valueOf(3).equals(user.getRoleFlag()) ? "一般ユーザー"
+				: "ユーザー";
+		emailService.sendInvitationEmail(user.getEmail(), roleLabel, setupUrl, INVITATION_VALID_HOURS);
 	}
 
 	// ①管理者が代理で要求
@@ -104,7 +124,7 @@ public class UserServiceImpl implements UserService {
 		}
 	}
 
-	// トークンから新パスワードを確定
+	// トークンから新パスワードを確定（再設定・招待で共通）
 	@Override
 	public void confirmPasswordReset(String token, String newPassword) {
 		PasswordResetToken prt = passwordResetTokenMapper.selectByToken(token);
@@ -123,25 +143,25 @@ public class UserServiceImpl implements UserService {
 	}
 
 	// 本人がログイン後に直接変更
-		@Override
-		public void changeOwnPassword(Integer userId, String currentPassword, String newPassword) {
-			User user = userMapper.selectById(userId);
-			if (user == null) {
-				throw new IllegalArgumentException("ユーザーが見つかりません");
-			}
-			if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-				throw new IllegalStateException("現在のパスワードが正しくありません");
-			}
-			userMapper.updatePassword(userId, passwordEncoder.encode(newPassword));
-
-			// ★追加：本人の現在のアドレスへパスワード変更完了メールを送信
-			emailService.sendPasswordChangedNotification(user.getEmail());
-
-			userChangeHistoryMapper.insert(UserChangeHistory.builder()
-					.userId(userId).companyId(user.getCompanyId())
-					.changeType("PASSWORD_CHANGE")
-					.operatedBy("本人").build());
+	@Override
+	public void changeOwnPassword(Integer userId, String currentPassword, String newPassword) {
+		User user = userMapper.selectById(userId);
+		if (user == null) {
+			throw new IllegalArgumentException("ユーザーが見つかりません");
 		}
+		if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+			throw new IllegalStateException("現在のパスワードが正しくありません");
+		}
+		userMapper.updatePassword(userId, passwordEncoder.encode(newPassword));
+
+		// ★追加：本人の現在のアドレスへパスワード変更完了メールを送信
+		emailService.sendPasswordChangedNotification(user.getEmail());
+
+		userChangeHistoryMapper.insert(UserChangeHistory.builder()
+				.userId(userId).companyId(user.getCompanyId())
+				.changeType("PASSWORD_CHANGE")
+				.operatedBy("本人").build());
+	}
 
 	// ---------- メールアドレス変更 ----------
 
@@ -169,30 +189,30 @@ public class UserServiceImpl implements UserService {
 	}
 
 	// ② 本人がログイン後
-		@Override
-		public void updateOwnEmail(Integer userId, String currentPassword, String newEmail) {
-			User user = userMapper.selectById(userId);
-			if (user == null) {
-				throw new IllegalArgumentException("ユーザーが見つかりません");
-			}
-			if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-				throw new IllegalStateException("現在のパスワードが正しくありません");
-			}
-
-			User existing = userMapper.selectByLoginId(newEmail);
-			if (existing != null && !existing.getUserId().equals(userId)) {
-				throw new IllegalStateException("そのメールアドレスは既に使用されています");
-			}
-
-			String oldEmail = user.getEmail();
-			userMapper.updateLoginIdAndEmail(userId, newEmail, newEmail);
-			emailService.sendEmailChangedNotification(oldEmail, newEmail);
-
-			userChangeHistoryMapper.insert(UserChangeHistory.builder()
-					.userId(userId).companyId(user.getCompanyId())
-					.changeType("EMAIL_CHANGE").oldValue(oldEmail).newValue(newEmail)
-					.operatedBy("本人").build());
+	@Override
+	public void updateOwnEmail(Integer userId, String currentPassword, String newEmail) {
+		User user = userMapper.selectById(userId);
+		if (user == null) {
+			throw new IllegalArgumentException("ユーザーが見つかりません");
 		}
+		if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+			throw new IllegalStateException("現在のパスワードが正しくありません");
+		}
+
+		User existing = userMapper.selectByLoginId(newEmail);
+		if (existing != null && !existing.getUserId().equals(userId)) {
+			throw new IllegalStateException("そのメールアドレスは既に使用されています");
+		}
+
+		String oldEmail = user.getEmail();
+		userMapper.updateLoginIdAndEmail(userId, newEmail, newEmail);
+		emailService.sendEmailChangedNotification(oldEmail, newEmail);
+
+		userChangeHistoryMapper.insert(UserChangeHistory.builder()
+				.userId(userId).companyId(user.getCompanyId())
+				.changeType("EMAIL_CHANGE").oldValue(oldEmail).newValue(newEmail)
+				.operatedBy("本人").build());
+	}
 
 	// ---------- 代表ユーザーの交代 ----------
 
@@ -220,7 +240,7 @@ public class UserServiceImpl implements UserService {
 		userMapper.updateRoleFlag(currentMaster.getUserId(), 3);
 		userMapper.updateRoleFlag(newMaster.getUserId(), 2);
 
-	    businessPolicyService.resetPolicyOnTransfer(companyId, operatorName);
+		businessPolicyService.resetPolicyOnTransfer(companyId, operatorName);
 
 		emailService.sendRoleTransferNotification(newMaster.getEmail(), currentMaster.getEmail());
 
@@ -237,59 +257,58 @@ public class UserServiceImpl implements UserService {
 	// ユーザー名変更（本人）
 	@Override
 	public void updateOwnName(Integer userId, String newName) {
-	    if (newName == null || newName.isBlank()) {
-	        throw new IllegalArgumentException("氏名を入力してください");
-	    }
+		if (newName == null || newName.isBlank()) {
+			throw new IllegalArgumentException("氏名を入力してください");
+		}
 
-	    User user = userMapper.selectById(userId);
-	    if (user == null) {
-	        throw new IllegalArgumentException("ユーザーが見つかりません");
-	    }
+		User user = userMapper.selectById(userId);
+		if (user == null) {
+			throw new IllegalArgumentException("ユーザーが見つかりません");
+		}
 
-	    String oldName = user.getName();
-	    if (newName.equals(oldName)) {
-	        return; // 変更なしなら何もしない
-	    }
+		String oldName = user.getName();
+		if (newName.equals(oldName)) {
+			return; // 変更なしなら何もしない
+		}
 
-	    userMapper.updateName(userId, newName);
+		userMapper.updateName(userId, newName);
 
-	    userChangeHistoryMapper.insert(UserChangeHistory.builder()
-	            .userId(userId).companyId(user.getCompanyId())
-	            .changeType("NAME_CHANGE")
-	            .oldValue(oldName).newValue(newName)
-	            .operatedBy("本人").build());
+		userChangeHistoryMapper.insert(UserChangeHistory.builder()
+				.userId(userId).companyId(user.getCompanyId())
+				.changeType("NAME_CHANGE")
+				.oldValue(oldName).newValue(newName)
+				.operatedBy("本人").build());
 	}
 
-	// 一般ユーザー追加
+	// 一般ユーザー追加（パスワードは、招待のリンクから本人が決める）
 	@Override
 	public User addGeneralUser(Integer companyId, String name, String email, String operatorName) {
-	    User existing = userMapper.selectByLoginId(email);
-	    if (existing != null) {
-	        throw new IllegalStateException("そのメールアドレスは既に使用されています");
-	    }
+		User existing = userMapper.selectByLoginId(email);
+		if (existing != null) {
+			throw new IllegalStateException("そのメールアドレスは既に使用されています");
+		}
 
-	    String rawPassword = UUID.randomUUID().toString().substring(0, 8);
+		User user = new User();
+		user.setLoginId(email);
+		// 本人がリンクから設定するまでは、誰も知らないランダムな値にしておく
+		user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+		user.setName(name);
+		user.setCompanyId(companyId);
+		user.setRoleFlag(3); // 一般ユーザー
+		user.setEmail(email);
+		user.setIsActive(1);
 
-	    User user = new User();
-	    user.setLoginId(email);
-	    user.setPassword(passwordEncoder.encode(rawPassword));
-	    user.setName(name);
-	    user.setCompanyId(companyId);
-	    user.setRoleFlag(3); // 一般ユーザー
-	    user.setEmail(email);
-	    user.setIsActive(1);
+		userMapper.insert(user); // useGeneratedKeysでuserIdが自動セットされる
 
-	    userMapper.insert(user); // useGeneratedKeysでuserIdが自動セットされる
+		sendInvitation(user);
 
-	    emailService.sendGeneralUserWelcomeEmail(email, rawPassword);
+		userChangeHistoryMapper.insert(UserChangeHistory.builder()
+				.userId(user.getUserId()).companyId(companyId)
+				.changeType("USER_ADDED")
+				.newValue(email)
+				.operatedBy(operatorName).build());
 
-	    userChangeHistoryMapper.insert(UserChangeHistory.builder()
-	            .userId(user.getUserId()).companyId(companyId)
-	            .changeType("USER_ADDED")
-	            .newValue(email)
-	            .operatedBy(operatorName).build());
-
-	    return user;
+		return user;
 	}
 
 }
