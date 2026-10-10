@@ -92,7 +92,7 @@ public class CompanyController {
 	        Company company = companyService.addCompanyWithMaster(request);
 
 	        Map<String, Object> response = new HashMap<>();
-	        response.put("message", "業者およびマスターアカウントを登録しました。");
+	        response.put("message", "発注元およびマスターアカウントを登録しました。");
 	        // 2. フロントエンドが遷移に使う companyId をレスポンスに追加する
 	        response.put("companyId", company.getCompanyId());
 
@@ -128,7 +128,7 @@ public class CompanyController {
 		companyService.editCompany(company);
 
 		Map<String, Object> response = new HashMap<>();
-		response.put("message", "業者情報を更新しました。");
+		response.put("message", "発注元情報を更新しました。");
 		return ResponseEntity.ok(response);
 	}
 
@@ -137,7 +137,7 @@ public class CompanyController {
 	public ResponseEntity<?> deleteCompanyApi(@PathVariable Integer id) {
 		try {
 			companyService.deleteCompany(id);
-			return ResponseEntity.ok(Map.of("message", "業者情報を削除しました。"));
+			return ResponseEntity.ok(Map.of("message", "発注元情報を削除しました。"));
 		} catch (IllegalStateException e) {
 			return ResponseEntity.badRequest().body(Map.of("errorMessage", e.getMessage()));
 		}

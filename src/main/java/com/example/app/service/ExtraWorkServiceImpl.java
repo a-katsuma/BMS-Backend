@@ -84,7 +84,7 @@ public class ExtraWorkServiceImpl implements ExtraWorkService {
 			throw new IllegalArgumentException("顧客を選択してください。");
 		}
 		if (request.getCompanyId() == null || companyService.getCompanyById(request.getCompanyId()) == null) {
-			throw new IllegalArgumentException("業者を選択してください。");
+			throw new IllegalArgumentException("発注元を選択してください。");
 		}
 		ExtraWork form = request.getWork();
 		if (form == null) {
@@ -292,7 +292,8 @@ public class ExtraWorkServiceImpl implements ExtraWorkService {
 		return work;
 	}
 
-	// 案件名：入力があればそれ（30文字まで）。なければ「【区分】MM/dd 場所（なければ依頼主）」を30文字で切る
+	// 案件名：入力があればそれ（30文字まで）。なければ「MM/dd 依頼主 依頼内容」を30文字で切る
+	// （依頼主・依頼内容は validate で必須・前後の空白を取り除き済み）
 	private String projectNameOf(String input, ExtraWork form) {
 		String name = trim(input);
 		if (name != null) {
@@ -301,17 +302,18 @@ public class ExtraWorkServiceImpl implements ExtraWorkService {
 			}
 			return name;
 		}
-		String where = (form.getLocation() != null) ? form.getLocation() : form.getRequester();
-		return limit("【" + form.getWorkType() + "】" + form.getWorkDate().format(NAME_DATE_FORMAT) + " " + where,
+		return limit(form.getWorkDate().format(NAME_DATE_FORMAT) + " " + form.getRequester() + " " + form.getContent(),
 				PROJECT_NAME_MAX);
 	}
+
+
 
 	// 実施日の時点で事前承認が「承認する」なら加算割合を返す（でなければ登録・受注できない）
 	private BigDecimal agreedMarkupRate(Integer companyId, LocalDate workDate) {
 		BusinessPolicy policy = businessPolicyService.getPolicyOn(companyId, workDate);
 		if (policy == null || !Objects.equals(policy.getIsAgreed(), 1) || policy.getMarkupRate() == null) {
 			throw new IllegalStateException("実施日（" + workDate.format(DATE_FORMAT)
-					+ "）の時点で業者の事前承認が「承認する」になっていないため、緊急・追加作業を登録・受注できません。");
+					+ "）の時点で発注元の事前承認が「承認する」になっていないため、緊急・追加作業を登録・受注できません。");
 		}
 		return policy.getMarkupRate();
 	}
