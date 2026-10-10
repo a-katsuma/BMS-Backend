@@ -8,6 +8,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.validation.Validator;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -53,5 +54,19 @@ public class ApplicationConfig implements WebMvcConfigurer {
 				.allowedMethods("GET", "POST", "PUT", "DELETE")
 				.allowedHeaders("*")
 				.allowCredentials(true);
+	}
+
+	// API の入口で、ログインと立場を共通で確認する（AuthInterceptor）
+	// ログインなしで使う API（ログイン・パスワード再設定・デモ用ログイン）は対象から外す
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(new AuthInterceptor())
+				.addPathPatterns("/api/**")
+				.excludePathPatterns(
+						"/api/users/login",
+						"/api/users/forgot-password",
+						"/api/users/reset-password/confirm",
+						"/api/demo",
+						"/api/demo/**");
 	}
 }
