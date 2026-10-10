@@ -98,7 +98,7 @@ public class ExtraWorkController {
 		try {
 			int sent = extraWorkService.order(projectId, extraWorkId, user.getName());
 			return ResponseEntity.ok(Map.of("message", sent > 0
-					? "受注しました。業者の代表ユーザーにお知らせメールを送りました。"
+					? "受注しました。発注元の代表ユーザーにお知らせメールを送りました。"
 					: "受注しました。（お知らせメールの送り先となる代表ユーザーがいません）"));
 		} catch (IllegalStateException | IllegalArgumentException e) {
 			return badRequest(e);

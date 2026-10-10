@@ -298,7 +298,7 @@ public class BillingStatementServiceImpl implements BillingStatementService {
 					}
 					if (!candidateIds.contains(extraWorkId)) {
 						throw new IllegalStateException(label + "取り込めない作業です（受注済みでない・請求済み・"
-								+ "ほかの明細に取り込み済み・別の顧客や業者の作業のいずれかです）。画面を再読み込みしてください。");
+								+ "ほかの明細に取り込み済み・別の顧客や発注元の作業のいずれかです）。画面を再読み込みしてください。");
 					}
 				}
 				ExtraWork work = works.computeIfAbsent(extraWorkId, extraWorkService::getById);

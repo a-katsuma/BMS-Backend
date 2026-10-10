@@ -47,7 +47,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 			if (role == ROLE_MASTER || role == ROLE_GENERAL) {
 				return true;
 			}
-			return reject(response, HttpStatus.FORBIDDEN, "業者のユーザーだけが使えます。");
+			return reject(response, HttpStatus.FORBIDDEN, "発注元のユーザーだけが使えます。");
 		}
 
 		// ユーザーの API（自分の情報の変更など。立場はコントローラーの中で確認する）
